@@ -1,0 +1,15 @@
+{
+  "name": "Somasu",
+  "short_name": "Somasu",
+  "description": "The Somiah family planner: shared lists, calendar and bookings.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F3EDE0",
+  "theme_color": "#F2B84C",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,26 @@
+# Somasu on Netlify. The web app is in public/; the server functions are in
+# netlify/functions. Netlify installs package.json (web-push) when it builds.
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/config.js"
+  [headers.values]
+    Cache-Control = "no-cache"

@@ -1,0 +1,8 @@
+{
+  "name": "somasu",
+  "private": true,
+  "description": "Somasu family planner. Netlify installs these for the notification functions.",
+  "dependencies": {
+    "web-push": "3.6.7"
+  }
+}
