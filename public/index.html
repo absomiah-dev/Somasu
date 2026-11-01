@@ -255,6 +255,21 @@ main{flex:1;min-width:0;padding:16px 16px calc(var(--nav-h) + var(--safe-b) + 90
 .pwcheck{list-style:none;padding:0;margin:8px 0 0;font-size:12px;color:var(--muted);display:grid;grid-template-columns:1fr 1fr;gap:2px 10px}
 .pwcheck li.ok{color:var(--green);font-weight:600}
 .signin .banner{margin:0 0 12px}
+
+/* Netlify's free plan adds a "Powered by Netlify" badge (bottom right, about 64px tall)
+   that can't be hidden. When it's there, lift the tab bar, + button and messages above it. */
+.has-badge .nav{bottom:var(--badge-h)}
+.has-badge .fab{bottom:calc(var(--nav-h) + var(--safe-b) + 16px + var(--badge-h))}
+.has-badge .toast{bottom:calc(var(--nav-h) + var(--safe-b) + 18px + var(--badge-h))}
+.has-badge main{padding-bottom:calc(var(--nav-h) + var(--safe-b) + 90px + var(--badge-h))}
+.has-badge body::after{content:"";position:fixed;left:0;right:0;bottom:0;height:var(--badge-h);background:var(--white);z-index:29}
+@media (min-width:900px){
+  .has-badge .nav{bottom:0}
+  .has-badge .fab{bottom:calc(28px + var(--badge-h))}
+  .has-badge .toast{bottom:calc(28px + var(--badge-h))}
+  .has-badge main{padding-bottom:calc(120px + var(--badge-h))}
+  .has-badge body::after{display:none}
+}
 </style>
 </head>
 <body>

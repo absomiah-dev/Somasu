@@ -1285,6 +1285,22 @@ async function boot() {
   else signInScreen();
 }
 
+/* Make room for Netlify's free-plan badge if it appears (see index.html styles). */
+(function watchBadge() {
+  const fit = () => {
+    const f = document.getElementById('nl-badge-frame');
+    if (!f) return false;
+    const h = Math.ceil(f.getBoundingClientRect().height) || 64;
+    document.documentElement.style.setProperty('--badge-h', h + 'px');
+    document.documentElement.classList.add('has-badge');
+    return true;
+  };
+  if (fit()) return;
+  const mo = new MutationObserver(() => { if (fit()) mo.disconnect(); });
+  mo.observe(document.body, { childList: true });
+  window.addEventListener('resize', fit);
+})();
+
 window.__somasu = { S, parseICS, occurrences, guessCat }; // handy for testing in the browser console
 boot();
 })();
