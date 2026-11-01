@@ -12,11 +12,20 @@
    On every new build: change APP_RELEASE and APP_UPDATED, the <meta name="app-version">
    tag in index.html and the CACHE name in sw.js, and add the release at the top of RELEASES.
    Plain English, one short sentence per item, what people will notice. */
-const APP_YEAR = '26', APP_RELEASE = 'R1', APP_UPDATED = '1 Nov 2026';
+const APP_YEAR = '26', APP_RELEASE = 'R2', APP_UPDATED = '1 Nov 2026';
 const VERSION = APP_YEAR + ' ' + APP_RELEASE;
 const VERSION_DATE = APP_UPDATED;
 const PRE_RELEASE = /^R0\./.test(APP_RELEASE);
 const RELEASES = [
+  { v: '26 R2', date: '1 Nov 2026',
+    everyone: [
+      'Linking calendars is much quicker: pick Google, Outlook, Apple or school, follow the steps, paste, done. Somasu checks the link and names it for you.',
+      'School and club calendars now work without any admin set-up.',
+      'Five short how-to videos in Help, with a Watch how link for the page you’re on.',
+      'The Help button now says Help, and the version and What’s new are at the bottom of Home.',
+      'The tab bar and + button now sit above the Netlify badge, so nothing is covered.'
+    ],
+    admin: ['The calendar fetcher now accepts any public https calendar for signed-in family members (private-network addresses still refused), so EXTRA_ICS_HOSTS is no longer needed.'] },
   { v: '26 R1', date: '1 Nov 2026',
     everyone: [
       'Somasu is live for the Somiah family: shared lists, the family calendar, bookings and notifications.',
@@ -52,9 +61,17 @@ const RELEASES = [
 /* Guide PDFs opened by the ? Help button. If a guide is edited and its pages move,
    update the page numbers here. */
 const GUIDES = {
-  user: { file: 'guides/Somasu-User-Guide.pdf', title: 'User guide', contents: [{"t": "Welcome to Somasu", "p": 3}, {"t": "Getting started", "p": 4}, {"t": "Home", "p": 5, "topic": "home"}, {"t": "Lists", "p": 7, "topic": "lists"}, {"t": "Calendar", "p": 9, "topic": "calendar"}, {"t": "Bookings", "p": 11, "topic": "bookings"}, {"t": "Notifications", "p": 12}, {"t": "Family and settings", "p": 14, "topic": "family"}, {"t": "Questions and fixes", "p": 17}] },
-  admin: { file: 'guides/Somasu-Admin-Guide.pdf', title: 'Admin guide', contents: [{"t": "What admins do", "p": 3}, {"t": "How Somasu is put together", "p": 3}, {"t": "Setting up Somasu", "p": 5}, {"t": "Family members", "p": 7}, {"t": "Bookings and linked calendars", "p": 8}, {"t": "Notifications behind the scenes", "p": 8}, {"t": "Releasing a new version", "p": 10}, {"t": "Backups and data", "p": 10}, {"t": "Troubleshooting", "p": 11}, {"t": "Checklist", "p": 11}] }
+  user: { file: 'guides/Somasu-User-Guide.pdf', title: 'User guide', contents: [{"t": "Welcome to Somasu", "p": 3}, {"t": "Getting started", "p": 4}, {"t": "Home", "p": 5, "topic": "home"}, {"t": "Lists", "p": 7, "topic": "lists"}, {"t": "Calendar", "p": 9, "topic": "calendar"}, {"t": "Bookings", "p": 11, "topic": "bookings"}, {"t": "Notifications", "p": 12}, {"t": "Family and settings", "p": 14, "topic": "family"}, {"t": "Questions and fixes", "p": 18}] },
+  admin: { file: 'guides/Somasu-Admin-Guide.pdf', title: 'Admin guide', contents: [{"t": "What admins do", "p": 3}, {"t": "How Somasu is put together", "p": 3}, {"t": "Setting up Somasu", "p": 5}, {"t": "Family members", "p": 7}, {"t": "Bookings and linked calendars", "p": 8}, {"t": "Notifications behind the scenes", "p": 9}, {"t": "Releasing a new version", "p": 10}, {"t": "Backups and data", "p": 10}, {"t": "Troubleshooting", "p": 11}, {"t": "Checklist", "p": 11}] }
 };
+/* Short silent how-to videos (public/guides/videos). Re-record with 07_Videos when screens change. */
+const VIDEOS = [
+  { id: 'lists', file: 'guides/videos/somasu-01-lists.mp4', title: 'Add to the shopping list and tick things off', topic: 'lists' },
+  { id: 'event', file: 'guides/videos/somasu-02-calendar-event.mp4', title: 'Add an event with a reminder', topic: 'calendar' },
+  { id: 'booking', file: 'guides/videos/somasu-03-booking.mp4', title: 'Book the car (and what a clash looks like)', topic: 'bookings' },
+  { id: 'notify', file: 'guides/videos/somasu-04-notifications.mp4', title: 'Turn on notifications', topic: 'family' },
+  { id: 'linkcal', file: 'guides/videos/somasu-05-link-calendar.mp4', title: 'Link a Google, Outlook or school calendar', topic: 'family' }
+];
 const CFG = window.SOMASU_CONFIG || {};
 const FAMILY_MODE = !!(CFG.supabaseUrl && CFG.supabaseKey);
 const TABLES = ['members', 'lists', 'items', 'events', 'calendars', 'facilities', 'bookings'];
@@ -388,18 +405,23 @@ function parseICS(text) {
   }
   return out;
 }
+async function fetchICSText(rawUrl) {
+  const headers = {};
+  if (client) { const { data } = await client.auth.getSession(); if (data.session) headers.Authorization = 'Bearer ' + data.session.access_token; }
+  const url = rawUrl.trim().replace(/^webcal:\/\//i, 'https://');
+  const r = await fetch(ICS_ENDPOINT + '?url=' + encodeURIComponent(url), { headers });
+  if (!r.ok) { const e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
+  const text = await r.text();
+  if (!text.includes('BEGIN:VCALENDAR')) { const e = new Error('Not a calendar'); e.status = 422; throw e; }
+  return text;
+}
+const icsCalName = text => { const m = /^X-WR-CALNAME:(.+)$/m.exec(text.replace(/\r?\n[ \t]/g, '')); return m ? icsUnescape(m[1].trim()).slice(0, 40) : ''; };
 async function fetchCalendar(cal, force) {
   const cacheKey = 'somasu-ics-' + cal.id;
   const cached = store_get(cacheKey, null);
   if (cached && !force && Date.now() - cached.at < 15 * 60000) { S.external[cal.id] = parseICS(cached.text); S.extStatus[cal.id] = 'ok'; return; }
   try {
-    const headers = {};
-    if (client) { const { data } = await client.auth.getSession(); if (data.session) headers.Authorization = 'Bearer ' + data.session.access_token; }
-    const url = cal.url.trim().replace(/^webcal:\/\//i, 'https://');
-    const r = await fetch(ICS_ENDPOINT + '?url=' + encodeURIComponent(url), { headers });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const text = await r.text();
-    if (!text.includes('BEGIN:VCALENDAR')) throw new Error('Not a calendar');
+    const text = await fetchICSText(cal.url);
     store_set(cacheKey, { at: Date.now(), text });
     S.external[cal.id] = parseICS(text); S.extStatus[cal.id] = 'ok';
   } catch (e) {
@@ -449,7 +471,7 @@ function draw() {
     <button class="brand" data-act="tab" data-tab="home" aria-label="Somasu home"><img src="icon-192.png" alt=""><span class="wm">Somasu<small>Somiah family planner</small></span></button>
     <span class="spacer"></span>
     ${FAMILY_MODE ? '' : '<span class="mode-pill" title="Data is kept on this device only">Try-out mode</span>'}
-    <button class="icon-btn help-btn" data-act="help" aria-label="Help">?</button>
+    <button class="help-btn" data-act="help" aria-label="Help and guides"><span class="q">?</span><span class="ht">Help</span></button>
     ${S.me ? `<button class="icon-btn" data-act="tab" data-tab="more" aria-label="Your settings">${avatar(S.me.id)}</button>` : ''}
   </header>
   <div class="layout">
@@ -491,7 +513,8 @@ function viewHome() {
     <section class="card"><h2><span class="dot" style="background:var(--ink)"></span>Bookings<button class="more" data-act="tab" data-tab="bookings">Book</button></h2>
       ${books.length ? books.map(bookRow).join('') : `<div class="empty">Nothing booked today or tomorrow.</div>`}
     </section>
-  </div>`;
+  </div>
+  <p class="home-ver ver">${verHtml()}<br><a href="#" data-act="help">Help, guides and short videos</a></p>`;
 }
 function evRow(e, showDay) {
   const time = e.allDay ? 'All day' : fmtTime(e.start);
@@ -639,12 +662,7 @@ function viewBookings() {
 
 /* ---------- Family / settings ---------- */
 function viewMore() {
-  const calHelp = `<details class="howto"><summary>Where do I find my calendar's private link?</summary>
-    <ol><li><b>Google:</b> on a computer, open Google Calendar › Settings › click the calendar on the left › copy <i>Secret address in iCal format</i>.</li>
-    <li><b>Outlook / Microsoft 365:</b> Outlook on the web › Settings › Calendar › Shared calendars › Publish a calendar › choose <i>Can view all details</i> › copy the ICS link.</li>
-    <li><b>Apple iCloud:</b> Calendar app › tap ⓘ next to a calendar › turn on <i>Public Calendar</i> › share link (it starts webcal://).</li>
-    <li><b>School or club calendars:</b> look for “Subscribe”, “iCal” or “.ics” on their website.</li></ol>
-    <p class="small muted">Linked calendars are read-only here and refresh every 15 minutes. Anyone in the family can see them, so only link calendars you're happy to share.</p></details>`;
+  const calHelp = '';
   return `<div class="page-h"><h1>Family</h1></div>
   <div class="grid2"><div class="settings-sec">
     <h2>You</h2>
@@ -654,7 +672,7 @@ function viewMore() {
     <div class="card">${S.members.map(m => `<div class="row" ${isAdmin() ? `data-act="edit-member" data-id="${m.id}" style="cursor:pointer"` : ''}>${avatar(m.id)}<div class="main"><div class="t">${esc(m.name)}${m.is_admin ? ' <span class="small muted">· admin</span>' : ''}</div><div class="m">${esc(m.email || 'No email')}</div></div></div>`).join('')}
       ${isAdmin() ? `<div class="actions"><button class="btn sm" data-act="new-member">${I.plus} Add family member</button></div>` : '<p class="small muted">Ask an admin to add or change family members.</p>'}</div>
     <h2>Linked calendars</h2>
-    <div class="card">${S.calendars.length ? S.calendars.map(c => `<div class="row" data-act="edit-calendar" data-id="${c.id}" style="cursor:pointer"><span class="evbar" style="background:${esc(c.colour)}"></span><div class="main"><div class="t">${esc(c.name)}</div><div class="m">${c.visible === false ? 'Hidden' : ({ ok: 'Up to date', stale: 'Couldn’t refresh, showing the last copy', error: 'Couldn’t load: check the link' }[S.extStatus[c.id]] || 'Loading…')}</div></div></div>`).join('') : `<p class="small muted" style="margin-top:0">Show your Google, Outlook, Apple or school calendars alongside the family calendar.</p>`}
+    <div class="card">${S.calendars.length ? S.calendars.map(c => `<div class="row" data-act="edit-calendar" data-id="${c.id}" style="cursor:pointer"><span class="evbar" style="background:${esc(c.colour)}"></span><div class="main"><div class="t">${esc(c.name)}</div><div class="m">${c.visible === false ? 'Hidden' : ({ ok: 'Up to date', stale: 'Couldn’t refresh, showing the last copy', error: 'Couldn’t load: check the link' }[S.extStatus[c.id]] || 'Loading…')}</div></div></div>`).join('') : `<p class="small muted" style="margin-top:0">Show your Google, Outlook, Apple or school calendars alongside the family calendar. Takes about a minute each.</p>`}
       ${calHelp}
       <div class="actions"><button class="btn sm" data-act="new-calendar">${I.link} Link a calendar</button>${S.calendars.length ? `<button class="btn sm ghost" data-act="refresh-cals">Refresh now</button>` : ''}</div></div>
   </div><div class="settings-sec">
@@ -759,11 +777,88 @@ function memberForm(m) {
     <div class="f"><label class="toggle"><input type="checkbox" name="is_admin" ${m && m.is_admin ? 'checked' : ''}> Admin (can add and change family members)</label></div>
     <div class="actions">${m ? `<button type="button" class="btn danger" data-act="delete-member" data-id="${m.id}">Remove</button>` : ''}<button class="btn dark grow" type="submit">Save</button></div></form>`);
 }
+/* ---- Link a calendar: pick the service, follow 2-3 steps, paste, done ---- */
+const CAL_PROVIDERS = [
+  { id: 'google', name: 'Google', sub: 'Gmail and Google accounts', letter: 'G', colour: '#3B6FC9',
+    open: 'https://calendar.google.com/calendar/u/0/r/settings', openLabel: 'Open Google Calendar settings',
+    steps: ['Tap the button below. A computer is easiest: the Google Calendar phone app doesn’t show this setting, but your phone’s web browser does.',
+      'On the left, under <b>Settings for my calendars</b>, click the calendar you want.',
+      'Scroll down to <b>Secret address in iCal format</b>, click the copy icon, then come back here and tap <b>Paste</b>.'] },
+  { id: 'outlook', name: 'Outlook', sub: 'Outlook, Hotmail, Microsoft 365', letter: 'O', colour: '#2563A8',
+    open: 'https://outlook.live.com/calendar/0/options/calendar/SharedCalendars', openLabel: 'Open Outlook calendar sharing',
+    steps: ['Tap the button below and sign in. (Work or school account? Use outlook.office.com › Settings › Calendar › Shared calendars.)',
+      'Under <b>Publish a calendar</b>, pick the calendar and <b>Can view all details</b>, then <b>Publish</b>.',
+      'Copy the <b>ICS</b> link (not the HTML one), come back here and tap <b>Paste</b>.'] },
+  { id: 'apple', name: 'Apple iCloud', sub: 'iPhone, iPad and Mac calendars', letter: '', colour: '#5E6B64',
+    steps: ['On your iPhone, open the <b>Calendar</b> app and tap <b>Calendars</b> at the bottom.',
+      'Tap ⓘ next to the calendar, turn on <b>Public Calendar</b>, then tap <b>Share Link…</b> › <b>Copy</b>.',
+      'Come back here and tap <b>Paste</b>.'] },
+  { id: 'other', name: 'School, club or other', sub: 'Any calendar with a subscribe link', letter: '+', colour: '#10704E',
+    steps: ['On the school or club website, look for <b>Subscribe</b>, <b>Add to calendar</b>, <b>iCal</b> or a link ending in <b>.ics</b>.',
+      'Copy that link (press and hold it on a phone), come back here and tap <b>Paste</b>.'] }
+];
+// Friendly checks on a pasted link before we try it. Returns { url, warn } or { error }.
+function checkCalLink(raw) {
+  let u = (raw || '').trim().replace(/^<|>$/g, '');
+  if (!u) return { error: 'Paste the calendar’s link first.' };
+  u = u.replace(/^webcal:\/\//i, 'https://');
+  if (/^http:\/\//i.test(u)) u = u.replace(/^http:/i, 'https:');
+  if (!/^https:\/\/[^\s/]+\.[^\s/]+\//i.test(u)) return { error: 'That doesn’t look like a web link. It should start with https:// or webcal://' };
+  if (/calendar\.google\.com\/calendar\/(embed|r\b|u\/\d+\/r)/i.test(u)) return { error: 'That’s the address of the Google Calendar page, not the calendar’s link. In the calendar’s settings, copy the one called “Secret address in iCal format”.' };
+  if (/calendar\.google\.com/i.test(u) && /\/public\/basic\.ics/i.test(u)) return { url: u, warn: 'That’s the calendar’s public address, which only works if the calendar is set to public. If it doesn’t load, use the “Secret address in iCal format” instead.' };
+  if (/outlook\.(live|office|office365)\.com/i.test(u) && /\.html(\?|$)/i.test(u)) return { error: 'That’s Outlook’s HTML link. Copy the ICS link just above or below it instead.' };
+  return { url: u };
+}
+const nextCalColour = () => { const used = new Set(S.calendars.map(c => c.colour)); return ['#5567D6', '#0E7490', '#B4237A', '#C2410C', '#7C3AED', '#A16207', '#10704E', '#083223'].find(c => !used.has(c)) || '#5567D6'; };
+function linkCalendarWizard(providerId) {
+  const prov = CAL_PROVIDERS.find(p => p.id === providerId);
+  if (!prov) {
+    return modal('Link a calendar', `<p class="small" style="margin-top:0">Show your other calendars alongside family events. Where is it from?</p>
+      <div class="provs">${CAL_PROVIDERS.map(p => `<button class="prov" data-act="cal-provider" data-p="${p.id}"><span class="pl" style="background:${p.colour}">${p.letter || '<svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><circle cx="12" cy="12" r="5"/></svg>'}</span><span><b>${esc(p.name)}</b><small>${esc(p.sub)}</small></span>${I.right}</button>`).join('')}</div>
+      <p class="small muted">Linked calendars are view-only in Somasu, refresh every 15 minutes, and everyone in the family can see them.</p>`);
+  }
+  modal('Link ' + prov.name + (prov.id === 'other' ? '' : ' calendar'), `<ol class="steps">${prov.steps.map(t => `<li>${t}</li>`).join('')}</ol>
+    ${prov.open ? `<a class="btn ghost" style="width:100%;margin-bottom:14px" href="${prov.open}" target="_blank" rel="noopener">${I.link} ${esc(prov.openLabel)}</a>` : ''}
+    <form data-form="cal-link" data-p="${prov.id}" autocomplete="off">
+      <div class="f"><label for="cl">Calendar link</label><div class="paste"><input id="cl" name="url" type="url" inputmode="url" placeholder="Paste the link here">${navigator.clipboard && navigator.clipboard.readText ? '<button type="button" class="btn sm" data-act="cal-paste">Paste</button>' : ''}</div></div>
+      <div id="calcheck"></div>
+      <div class="actions"><button type="button" class="btn ghost" data-act="new-calendar">Back</button><button class="btn dark grow" type="submit">Check link</button></div>
+    </form>`, sheet => {
+    const inp = sheet.querySelector('#cl'); let t;
+    inp.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { if (/^(https|webcal|http):\/\/\S{12,}/i.test(inp.value.trim())) inp.form.requestSubmit(); }, 500); });
+  });
+}
+async function checkAndPreview(form) {
+  const box = form.querySelector('#calcheck'), prov = CAL_PROVIDERS.find(p => p.id === form.dataset.p);
+  const res = checkCalLink(form.elements.url.value);
+  if (res.error) { box.innerHTML = `<div class="err">${esc(res.error)}</div>`; return; }
+  if (S.calendars.some(c => c.url.replace(/^webcal:/i, 'https:') === res.url)) { box.innerHTML = `<div class="err">That calendar is already linked.</div>`; return; }
+  box.innerHTML = `<div class="banner">Checking the link…</div>`;
+  let text = null, problem = null;
+  try { text = await fetchICSText(res.url); }
+  catch (e) {
+    problem = !FAMILY_MODE ? 'Links can’t be checked in try-out mode, but you can still add it.'
+      : e.status === 401 ? 'Please sign in again, then try once more.'
+      : e.status === 403 ? 'That address isn’t allowed. Check you copied the whole link.'
+      : e.status === 422 ? 'That link opened, but it isn’t a calendar. Check you copied the iCal / ICS link.'
+      : 'Somasu couldn’t open that link. Check you copied all of it' + (prov && prov.id === 'apple' ? ' and that Public Calendar is still on.' : '.');
+  }
+  const events = text ? parseICS(text) : [];
+  const now = new Date(), upcoming = events.flatMap(x => occurrences(x, now, addDays(now, 60)).map(o => ({ t: x.title, s: o.start }))).sort((a, b) => a.s - b.s);
+  const name = (text && icsCalName(text)) || (prov && prov.id !== 'other' ? prov.name + ' calendar' : 'Calendar');
+  box.innerHTML = `${res.warn ? `<div class="banner">${esc(res.warn)}</div>` : ''}
+    ${text ? `<div class="found">✓ Found <b>${esc(name)}</b>: ${events.length} event${events.length === 1 ? '' : 's'}${upcoming[0] ? `, next is ${esc(upcoming[0].t)} on ${fmtDayShort(upcoming[0].s)}` : ''}.</div>` : `<div class="${FAMILY_MODE ? 'err' : 'banner'}">${esc(problem)}</div>`}
+    ${text || !FAMILY_MODE ? `<div class="f"><label for="cn2">Call it</label><input id="cn2" type="text" maxlength="40" value="${esc(name)}"></div>
+      <div class="actions" style="margin-top:6px"><button type="button" class="btn grow" data-act="cal-save" data-url="${esc(res.url)}">${I.link} Link it</button></div>` : ''}`;
+  box._text = text;
+  const sub = form.querySelector('[type=submit]'); if (sub) sub.classList.toggle('hidden', !!(text || !FAMILY_MODE));
+}
 function calendarForm(c) {
+  if (!c) return linkCalendarWizard(null);
   modal(c ? 'Linked calendar' : 'Link a calendar', `<form data-form="calendar" data-id="${c ? c.id : ''}" autocomplete="off">
     <div class="f"><label for="cN">Name</label><input id="cN" type="text" name="name" required maxlength="40" value="${esc(c ? c.name : '')}" placeholder="e.g. Andy's work, School term dates"></div>
     <div class="f"><label for="cU">Private iCal link</label><input id="cU" type="url" name="url" required value="${esc(c ? c.url : '')}" placeholder="https://calendar.google.com/calendar/ical/…/basic.ics">
-      <div class="hint">Starts with https:// or webcal:// and usually ends in .ics. See “Where do I find my calendar's private link?” on the Family page.</div></div>
+      <div class="hint">Starts with https:// or webcal://. To link a different calendar, use Link a calendar instead.</div></div>
     <div class="f"><span class="lab">Colour</span>${colourPicker('colour', c ? c.colour : '#5567D6')}</div>
     <div class="f"><label class="toggle"><input type="checkbox" name="visible" ${!c || c.visible !== false ? 'checked' : ''}> Show in the family calendar</label></div>
     <div class="actions">${c ? `<button type="button" class="btn danger" data-act="delete-calendar" data-id="${c.id}">Unlink</button>` : ''}<button class="btn dark grow" type="submit">${c ? 'Save' : 'Link it'}</button></div></form>`);
@@ -843,6 +938,7 @@ const SAVE = {
     if (error) return showErr(form, /same|different/i.test(error.message) ? 'Choose a password you haven’t used for Somasu before.' : error.message);
     closeModal(); toast('Password changed');
   },
+  async 'cal-link'(form) { await checkAndPreview(form); },
   async calendar(form, id) {
     const name = formVal(form, 'name'), url = formVal(form, 'url');
     if (!name || !url) return showErr(form, 'Add a name and the link.');
@@ -988,7 +1084,10 @@ function showHelp() {
   const g = GUIDES.user, a = GUIDES.admin;
   const here = g.contents.find(c => c.topic === topic) || g.contents[0];
   const list = (gd) => `<ol class="toc">${gd.contents.map(c => `<li>${guideLink(gd, c.p, c.t)}<span>${c.p}</span></li>`).join('')}</ol>`;
-  modal('Help', `${here ? `<div class="banner" style="margin-bottom:12px"><span>📖</span><span><b>Help with this page:</b> ${guideLink(g, here.p, here.t + ' (page ' + here.p + ')')}</span></div>` : ''}
+  const vids = VIDEOS.filter(v => v.topic === topic);
+  const vcard = v => `<button class="vid" data-act="video" data-id="${v.id}"><img src="${v.file.replace('.mp4', '.jpg')}" alt="" loading="lazy"><span>▶ ${esc(v.title)}</span></button>`;
+  modal('Help', `${here ? `<div class="banner" style="margin-bottom:12px"><span>📖</span><span><b>Help with this page:</b> ${guideLink(g, here.p, here.t + ' (page ' + here.p + ')')}${vids.length ? `<br><a href="#" data-act="video" data-id="${vids[0].id}">▶ Watch how</a>` : ''}</span></div>` : ''}
+    <h3 class="help-h">Short videos</h3><div class="vids">${VIDEOS.map(vcard).join('')}</div>
     <h3 class="help-h">${esc(g.title)}</h3>
     <div class="actions" style="margin-top:6px"><a class="btn sm" href="${g.file}" target="_blank" rel="noopener">Open</a><a class="btn sm ghost" href="${g.file}" download>${I.dl} Download</a></div>
     ${list(g)}
@@ -1125,7 +1224,21 @@ const ACT = {
     modal('Who’s using this device?', `<div class="actions" style="flex-direction:column;margin-top:0">${S.members.map(m => `<button class="btn ghost" data-act="set-me" data-id="${m.id}" style="justify-content:flex-start">${avatar(m.id)} ${esc(m.name)}</button>`).join('')}</div>`);
   },
   'set-me'(el) { store_set('somasu-me', el.dataset.id); S.me = memberById(el.dataset.id); closeModal(); render(); },
-  'new-calendar'() { calendarForm(null); },
+  'new-calendar'() { linkCalendarWizard(null); },
+  'cal-provider'(el) { linkCalendarWizard(el.dataset.p); },
+  async 'cal-paste'(el) {
+    try { const t = await navigator.clipboard.readText(); const f = el.closest('form'); f.elements.url.value = t.trim(); f.requestSubmit(); }
+    catch (e) { toast('Press and hold in the box, then choose Paste'); }
+  },
+  async 'cal-save'(el) {
+    const box = el.closest('#calcheck'), name = (box.querySelector('#cn2').value || 'Calendar').trim().slice(0, 40);
+    el.disabled = true;
+    const c = await store.insert('calendars', { name, url: el.dataset.url, colour: nextCalColour(), visible: true, created_by: S.me && S.me.id });
+    if (box._text && c) { store_set('somasu-ics-' + c.id, { at: Date.now(), text: box._text }); S.external[c.id] = parseICS(box._text); S.extStatus[c.id] = 'ok'; }
+    await loadAll(['calendars']); render();
+    modal('Linked', `<div class="found" style="margin-top:0">✓ <b>${esc(name)}</b> is now on the family calendar.</div>
+      <div class="actions" style="flex-direction:column"><button class="btn" data-act="new-calendar">${I.plus} Link another calendar</button><button class="btn ghost" data-act="close">Done</button></div>`);
+  },
   'edit-calendar'(el) { calendarForm(S.calendars.find(c => c.id === el.dataset.id)); },
   'delete-calendar'(el) { confirmBox('Unlink this calendar?', 'Its events will disappear from Somasu. Nothing changes in the original calendar.', 'Unlink', async () => { await store.remove('calendars', el.dataset.id); toast('Unlinked'); }); },
   'refresh-cals'() { toast('Refreshing…'); refreshCalendars(true); },
@@ -1136,6 +1249,11 @@ const ACT = {
   async 'push-pref'(el) { await setPushPref(el.dataset.k, el.checked); },
   async 'push-test'() { await testNotification(); },
   help() { showHelp(); },
+  video(el) {
+    const v = VIDEOS.find(x => x.id === el.dataset.id); if (!v) return;
+    modal(v.title, `<video src="${v.file}" poster="${v.file.replace('.mp4', '.jpg')}" controls autoplay muted playsinline style="width:100%;max-height:70vh;border-radius:14px;background:#000"></video>
+      <div class="actions"><button class="btn ghost grow" data-act="help">Back to Help</button></div>`);
+  },
   'wn-jump'(el) { const t = document.getElementById('wn-' + el.dataset.v.replace(/\W/g, '')); t && t.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
   async export() {
     const data = {}; for (const t of TABLES) data[t] = await store.all(t);

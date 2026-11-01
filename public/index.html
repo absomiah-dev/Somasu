@@ -9,7 +9,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Somasu">
-<meta name="app-version" content="26 R1 (01-11-2026)">
+<meta name="app-version" content="26 R2 (01-11-2026)">
 <title>Somasu</title>
 <link rel="manifest" href="site.webmanifest">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -234,7 +234,8 @@ main{flex:1;min-width:0;padding:16px 16px calc(var(--nav-h) + var(--safe-b) + 90
 .brand .wm{display:flex;flex-direction:column;align-items:flex-start;line-height:1;font-size:21px;font-weight:800;letter-spacing:-.01em}
 .brand .wm small{font-size:10.5px;font-weight:600;letter-spacing:.01em;margin:3px 0 0 1px;opacity:.8;white-space:nowrap}
 @media (max-width:430px){.mode-pill{display:none}}
-.help-btn{flex:none;font-weight:800;font-size:17px;width:36px;height:36px;border-radius:50%;background:rgba(8,50,35,.1)}
+.help-btn{flex:none;display:inline-flex;align-items:center;gap:6px;border:0;height:36px;padding:0 12px 0 5px;border-radius:99px;background:rgba(8,50,35,.12);font-weight:700;font-size:14px;color:var(--ink)}
+.help-btn .q{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--ink);color:var(--gold);font-weight:800;font-size:15px}
 .top .icon-btn,.mode-pill{flex:none}
 .help-btn:hover{background:rgba(8,50,35,.18)}
 .tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:6px;background:#ECE7DB;color:var(--muted);vertical-align:2px}
@@ -270,6 +271,25 @@ main{flex:1;min-width:0;padding:16px 16px calc(var(--nav-h) + var(--safe-b) + 90
   .has-badge main{padding-bottom:calc(120px + var(--badge-h))}
   .has-badge body::after{display:none}
 }
+.home-ver{text-align:center;font-size:12px;color:var(--muted);margin:22px 0 0;line-height:1.9}
+.home-ver a{color:var(--green);font-weight:700}
+.vids{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0 4px}
+.vid{border:0;background:#fff;padding:0;border-radius:12px;overflow:hidden;box-shadow:inset 0 0 0 1.5px var(--line);text-align:left;cursor:pointer}
+.vid img{display:block;width:100%;aspect-ratio:9/12;object-fit:cover;object-position:top;background:var(--ivory)}
+.vid span{display:block;padding:8px 10px;font-size:12px;font-weight:700;line-height:1.3}
+.provs{display:flex;flex-direction:column;gap:8px;margin:6px 0 12px}
+.prov{display:flex;align-items:center;gap:12px;border:0;background:#fff;box-shadow:inset 0 0 0 1.5px var(--line);border-radius:14px;padding:12px;text-align:left;min-height:62px}
+.prov:hover{box-shadow:inset 0 0 0 2px var(--ink)}
+.prov>span:nth-child(2){flex:1}
+.prov b{display:block;font-size:15px}
+.prov small{color:var(--muted);font-size:12px}
+.prov svg:last-child{width:20px;height:20px;color:var(--muted)}
+.pl{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:18px;flex:none}
+.steps{margin:0 0 14px;padding-left:22px;font-size:14px}
+.steps li{margin-bottom:8px}
+.paste{display:flex;gap:8px}
+.paste input{flex:1;min-width:0}
+.found{background:var(--green-tint);color:var(--ink);border-radius:12px;padding:12px;font-size:14px;margin:4px 0 12px}
 </style>
 </head>
 <body>
