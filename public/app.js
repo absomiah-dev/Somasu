@@ -12,11 +12,14 @@
    On every new build: change APP_RELEASE and APP_UPDATED, the <meta name="app-version">
    tag in index.html and the CACHE name in sw.js, and add the release at the top of RELEASES.
    Plain English, one short sentence per item, what people will notice. */
-const APP_YEAR = '26', APP_RELEASE = 'R2', APP_UPDATED = '1 Nov 2026';
+const APP_YEAR = '26', APP_RELEASE = 'R3', APP_UPDATED = '2 Nov 2026';
 const VERSION = APP_YEAR + ' ' + APP_RELEASE;
 const VERSION_DATE = APP_UPDATED;
 const PRE_RELEASE = /^R0\./.test(APP_RELEASE);
 const RELEASES = [
+  { v: '26 R3', date: '2 Nov 2026',
+    everyone: ['There’s now a Sign out button at the top of every page, so you can sign out in one tap (it checks with you first).'],
+    admin: [] },
   { v: '26 R2', date: '1 Nov 2026',
     everyone: [
       'Linking calendars is much quicker: pick Google, Outlook, Apple or school, follow the steps, paste, done. Somasu checks the link and names it for you.',
@@ -129,6 +132,7 @@ const I = {
   down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="m6 9 6 6 6-6"/></svg>',
   dots: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
   link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>',
+  out: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>',
   dl: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>'
 };
 
@@ -473,6 +477,7 @@ function draw() {
     ${FAMILY_MODE ? '' : '<span class="mode-pill" title="Data is kept on this device only">Try-out mode</span>'}
     <button class="help-btn" data-act="help" aria-label="Help and guides"><span class="q">?</span><span class="ht">Help</span></button>
     ${S.me ? `<button class="icon-btn" data-act="tab" data-tab="more" aria-label="Your settings">${avatar(S.me.id)}</button>` : ''}
+    ${FAMILY_MODE && S.user ? `<button class="out-btn" data-act="sign-out-ask" aria-label="Sign out" title="Sign out">${I.out}<span class="ot">Sign out</span></button>` : ''}
   </header>
   <div class="layout">
     <nav class="side" aria-label="Main">${side}<div class="foot ver">${verHtml()}</div></nav>
@@ -1242,6 +1247,7 @@ const ACT = {
   'edit-calendar'(el) { calendarForm(S.calendars.find(c => c.id === el.dataset.id)); },
   'delete-calendar'(el) { confirmBox('Unlink this calendar?', 'Its events will disappear from Somasu. Nothing changes in the original calendar.', 'Unlink', async () => { await store.remove('calendars', el.dataset.id); toast('Unlinked'); }); },
   'refresh-cals'() { toast('Refreshing…'); refreshCalendars(true); },
+  'sign-out-ask'() { confirmBox('Sign out of Somasu?', 'You’ll need your email and password to sign back in on this device.', 'Sign out', () => ACT['sign-out']()); },
   async 'sign-out'() { try { await disablePush(true); } catch (e) { /* carry on signing out */ } await client.auth.signOut(); location.reload(); },
   'change-password'() { changePasswordForm(); },
   async 'push-on'() { await enablePush(); },
