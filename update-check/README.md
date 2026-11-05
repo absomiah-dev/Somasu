@@ -7,8 +7,8 @@ when that changes, update this copy in the next release's push (never a push on 
 
 Netlify only publishes `public/`, so nothing in this folder goes on the website.
 
-- `01-11-2026_Somiah-Family-App_Update-Email-Template-v1.html`: the email design
+- `05-11-2026_Somiah-Family-App_Update-Email-Template-v2.html`: the email design (v2: Moringa colours to match Somasu 26 R5)
 - `fill_email.py`: `python3 fill_email.py <template> <results.json> <out.html>`
 - `01-11-2026_Somiah-Family-App_Update-Email-Example-Data-v1.json`: a worked example
-- `email-icon.png`: the one inline attachment (`cid:att0`)
-- `tests/`: `fn.test.mjs`, `ics.test.mjs`, `smoke.js`, `sample.ics`
+- `email-icon.png`: the one inline attachment (`cid:att0`), the Somasu app icon
+- `tests/`: `fn.test.mjs`, `ics.test.mjs`, `smoke.js`, `merge.test.js` (calendar duplicates), `sample.ics`

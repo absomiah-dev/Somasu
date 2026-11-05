@@ -12,11 +12,14 @@
    On every new build: change APP_RELEASE and APP_UPDATED, the <meta name="app-version">
    tag in index.html and the CACHE name in sw.js, and add the release at the top of RELEASES.
    Plain English, one short sentence per item, what people will notice. */
-const APP_YEAR = '26', APP_RELEASE = 'R4', APP_UPDATED = '5 Nov 2026';
+const APP_YEAR = '26', APP_RELEASE = 'R5', APP_UPDATED = '5 Nov 2026';
 const VERSION = APP_YEAR + ' ' + APP_RELEASE;
 const VERSION_DATE = APP_UPDATED;
 const PRE_RELEASE = /^R0\./.test(APP_RELEASE);
 const RELEASES = [
+  { v: '26 R5', date: '5 Nov 2026',
+    everyone: ['Somasu has a fresh new look: soft moringa green with butter, blush and periwinkle touches, and a new app icon.', 'The user guide and how-to videos now show the new look, and the guide explains how shared calendar events show once.', 'Installed Somasu on your phone? The new icon can take a few days to appear. To see it now, remove Somasu from your Home Screen and add it again.'],
+    admin: ['The admin guide shows the new look too.'] },
   { v: '26 R4', date: '5 Nov 2026',
     everyone: ['An event that’s in more than one person’s linked calendar now shows once, with the faces of everyone it belongs to.', 'Tap it to see which calendars it’s in.'],
     admin: [] },
@@ -81,7 +84,7 @@ const VIDEOS = [
 const CFG = window.SOMASU_CONFIG || {};
 const FAMILY_MODE = !!(CFG.supabaseUrl && CFG.supabaseKey);
 const TABLES = ['members', 'lists', 'items', 'events', 'calendars', 'facilities', 'bookings'];
-const COLOURS = ['#10704E', '#5567D6', '#B4237A', '#C2410C', '#0E7490', '#7C3AED', '#A16207', '#083223'];
+const COLOURS = ['#3B6A50', '#5361C2', '#A1554B', '#8E6519', '#2F7F86', '#8A5A9E', '#6B7A2E', '#1D3328'];
 const ICS_ENDPOINT = '/api/ics';
 
 /* ------------------------------------------------------------------ helpers */
@@ -172,8 +175,8 @@ function sampleData() {
   const it = (list, text, by, mins) => ({ id: uid(), list_id: list, text, category: guessCat(text), note: '', done: false, cleared: false, added_by: by, created_at: new Date(Date.now() - mins * 60000).toISOString() });
   return {
     members: [
-      { id: me, name: 'Andy', email: 'andy@example.com', colour: '#10704E', is_admin: true },
-      { id: am, name: 'Ammita', email: 'ammita@example.com', colour: '#5567D6', is_admin: false }
+      { id: me, name: 'Andy', email: 'andy@example.com', colour: '#3B6A50', is_admin: true },
+      { id: am, name: 'Ammita', email: 'ammita@example.com', colour: '#5361C2', is_admin: false }
     ],
     lists: [
       { id: shop, name: 'Weekly shop', kind: 'shopping', sort: 1 },
@@ -191,7 +194,7 @@ function sampleData() {
       { id: uid(), title: 'Client call', all_day: false, start_at: iso(1, '10:00'), end_at: iso(1, '11:00'), who: [me], location: '', notes: '', repeat: 'none', repeat_until: null, created_by: me }
     ],
     calendars: [],
-    facilities: [{ id: car, name: 'Family car', note: 'Keys on the hook by the door', colour: '#10704E' }],
+    facilities: [{ id: car, name: 'Family car', note: 'Keys on the hook by the door', colour: '#3B6A50' }],
     bookings: [{ id: uid(), facility_id: car, member_id: am, start_at: iso(1, '09:00'), end_at: iso(1, '13:00'), note: 'Big shop and drop-off', created_by: am }],
     _today: today
   };
@@ -450,11 +453,11 @@ function eventsBetween(from, to) {
     if (who.length && who.every(id => S.hidden.has('m:' + id))) continue;
     if (!who.length && S.hidden.has('m:everyone')) continue;
     const o = { start: new Date(ev.start_at), end: new Date(ev.end_at), repeat: ev.repeat, until: ev.repeat_until ? addDays(parseYmd(ev.repeat_until), 1) : null, exdates: new Set(ev.skip_dates || []) };
-    occurrences(o, from, to).forEach(oc => out.push({ kind: 'family', ev, start: oc.start, end: oc.end, title: ev.title, allDay: ev.all_day, colour: who.length === 1 ? mColour(who[0]) : '#E0A12E' }));
+    occurrences(o, from, to).forEach(oc => out.push({ kind: 'family', ev, start: oc.start, end: oc.end, title: ev.title, allDay: ev.all_day, colour: who.length === 1 ? mColour(who[0]) : '#D9A441' }));
   }
   for (const cal of S.calendars) {
     if (cal.visible === false || S.hidden.has('c:' + cal.id)) continue;
-    for (const x of (S.external[cal.id] || [])) occurrences(x, from, to).forEach(oc => out.push({ kind: 'linked', cal, x, start: oc.start, end: oc.end, title: x.title, allDay: x.allDay, colour: cal.colour || '#5567D6' }));
+    for (const x of (S.external[cal.id] || [])) occurrences(x, from, to).forEach(oc => out.push({ kind: 'linked', cal, x, start: oc.start, end: oc.end, title: x.title, allDay: x.allDay, colour: cal.colour || '#5361C2' }));
   }
   return mergeDuplicates(out).sort((a, b) => (b.allDay - a.allDay) || (a.start - b.start));
 }
@@ -472,7 +475,7 @@ function mergeDuplicates(list) {
     const hit = e.kind === 'linked' ? (byKey.get(key) || (u && byUid.get(u))) : null;
     if (hit) {
       if (!hit.cals.includes(e.cal)) hit.cals.push(e.cal);
-      if (hit.kind === 'linked' && new Set(calOwners(hit)).size > 1) hit.colour = '#E0A12E';
+      if (hit.kind === 'linked' && new Set(calOwners(hit)).size > 1) hit.colour = '#D9A441';
       if (u && !byUid.has(u)) byUid.set(u, hit);
       continue;
     }
@@ -536,7 +539,7 @@ function viewHome() {
   ${!FAMILY_MODE ? `<div class="banner"><span>👋</span><span><b>Try-out mode.</b> This is sample data and it's saved on this device only. Once the family database is connected, everything here is shared and live.</span></div>` : ''}
   <div class="page-h"><h1>${hello}${S.me ? ', ' + esc(S.me.name) : ''}</h1><div class="sub">${fmtDayLong(now)}</div></div>
   <div class="grid2">
-    <section class="card"><h2><span class="dot"></span>Today<button class="more" data-act="tab" data-tab="calendar">Calendar</button></h2>
+    <section class="card"><h2><span class="dot" style="background:#D9A441"></span>Today<button class="more" data-act="tab" data-tab="calendar">Calendar</button></h2>
       ${today.length ? today.map(evRow).join('') : `<div class="empty"><b>Nothing else today</b>Enjoy the space.</div>`}
     </section>
     <section class="card"><h2><span class="dot" style="background:var(--green)"></span>Lists<button class="more" data-act="tab" data-tab="lists">Open lists</button></h2>
@@ -549,7 +552,7 @@ function viewHome() {
     <section class="card"><h2><span class="dot" style="background:var(--indigo)"></span>Coming up</h2>
       ${soon.length ? soon.map(e => evRow(e, true)).join('') : `<div class="empty">Nothing in the next week.</div>`}
     </section>
-    <section class="card"><h2><span class="dot" style="background:var(--ink)"></span>Bookings<button class="more" data-act="tab" data-tab="bookings">Book</button></h2>
+    <section class="card"><h2><span class="dot" style="background:#A1554B"></span>Bookings<button class="more" data-act="tab" data-tab="bookings">Book</button></h2>
       ${books.length ? books.map(bookRow).join('') : `<div class="empty">Nothing booked today or tomorrow.</div>`}
     </section>
   </div>
@@ -570,7 +573,7 @@ function bookRow(b) {
   const s = new Date(b.start_at), e = new Date(b.end_at);
   const span = sameDay(s, e) || (+e === +sod(e) && sameDay(s, addDays(e, -1))) ? `${relDay(s)} · ${fmtTime(s)}–${fmtTime(e)}` : `${fmtDayShort(s)} ${fmtTime(s)} → ${fmtDayShort(e)} ${fmtTime(e)}`;
   return `<div class="row" data-act="edit-booking" data-id="${b.id}" style="cursor:pointer">
-    <span class="evbar" style="background:${esc(f.colour || '#10704E')}"></span>
+    <span class="evbar" style="background:${esc(f.colour || '#3B6A50')}"></span>
     <div class="main"><div class="t">${esc(f.name || 'Deleted item')}</div><div class="m">${span}${b.note ? ' · ' + esc(b.note) : ''}</div></div>${avatar(b.member_id)}</div>`;
 }
 
@@ -623,7 +626,7 @@ function viewCalendar() {
   const gridEnd = addDays(gridStart, 42);
   const evs = eventsBetween(gridStart, gridEnd);
   const today = sod(new Date());
-  const filters = [`<button class="chip ${S.hidden.has('m:everyone') ? 'off' : ''}" data-act="filter" data-key="m:everyone"><span class="sw" style="background:#E0A12E"></span>Everyone</button>`]
+  const filters = [`<button class="chip ${S.hidden.has('m:everyone') ? 'off' : ''}" data-act="filter" data-key="m:everyone"><span class="sw" style="background:#D9A441"></span>Everyone</button>`]
     .concat(S.members.map(x => `<button class="chip ${S.hidden.has('m:' + x.id) ? 'off' : ''}" data-act="filter" data-key="m:${x.id}"><span class="sw" style="background:${esc(x.colour)}"></span>${esc(x.name)}</button>`))
     .concat(S.calendars.filter(c => c.visible !== false).map(c => `<button class="chip ${S.hidden.has('c:' + c.id) ? 'off' : ''}" data-act="filter" data-key="c:${c.id}" title="Linked calendar"><span class="sw" style="background:${esc(c.colour)};border-radius:3px"></span>${esc(c.name)}${S.extStatus[c.id] === 'error' ? ' ⚠' : ''}</button>`)).join('');
   const head = `<div class="cal-h"><h1>${S.calView === 'month' ? first.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) : 'Agenda'}</h1>
@@ -834,7 +837,7 @@ const CAL_PROVIDERS = [
     steps: ['On your iPhone, open the <b>Calendar</b> app and tap <b>Calendars</b> at the bottom.',
       'Tap ⓘ next to the calendar, turn on <b>Public Calendar</b>, then tap <b>Share Link…</b> › <b>Copy</b>.',
       'Come back here and tap <b>Paste</b>.'] },
-  { id: 'other', name: 'School, club or other', sub: 'Any calendar with a subscribe link', letter: '+', colour: '#10704E',
+  { id: 'other', name: 'School, club or other', sub: 'Any calendar with a subscribe link', letter: '+', colour: '#3B6A50',
     steps: ['On the school or club website, look for <b>Subscribe</b>, <b>Add to calendar</b>, <b>iCal</b> or a link ending in <b>.ics</b>.',
       'Copy that link (press and hold it on a phone), come back here and tap <b>Paste</b>.'] }
 ];
@@ -850,7 +853,7 @@ function checkCalLink(raw) {
   if (/outlook\.(live|office|office365)\.com/i.test(u) && /\.html(\?|$)/i.test(u)) return { error: 'That’s Outlook’s HTML link. Copy the ICS link just above or below it instead.' };
   return { url: u };
 }
-const nextCalColour = () => { const used = new Set(S.calendars.map(c => c.colour)); return ['#5567D6', '#0E7490', '#B4237A', '#C2410C', '#7C3AED', '#A16207', '#10704E', '#083223'].find(c => !used.has(c)) || '#5567D6'; };
+const nextCalColour = () => { const used = new Set(S.calendars.map(c => c.colour)); return ['#5361C2', '#2F7F86', '#A1554B', '#8E6519', '#8A5A9E', '#6B7A2E'].find(c => !used.has(c)) || '#5361C2'; };
 function linkCalendarWizard(providerId) {
   const prov = CAL_PROVIDERS.find(p => p.id === providerId);
   if (!prov) {
@@ -900,7 +903,7 @@ function calendarForm(c) {
     <div class="f"><label for="cN">Name</label><input id="cN" type="text" name="name" required maxlength="40" value="${esc(c ? c.name : '')}" placeholder="e.g. Andy's work, School term dates"></div>
     <div class="f"><label for="cU">Private iCal link</label><input id="cU" type="url" name="url" required value="${esc(c ? c.url : '')}" placeholder="https://calendar.google.com/calendar/ical/…/basic.ics">
       <div class="hint">Starts with https:// or webcal://. To link a different calendar, use Link a calendar instead.</div></div>
-    <div class="f"><span class="lab">Colour</span>${colourPicker('colour', c ? c.colour : '#5567D6')}</div>
+    <div class="f"><span class="lab">Colour</span>${colourPicker('colour', c ? c.colour : '#5361C2')}</div>
     <div class="f"><label class="toggle"><input type="checkbox" name="visible" ${!c || c.visible !== false ? 'checked' : ''}> Show in the family calendar</label></div>
     <div class="actions">${c ? `<button type="button" class="btn danger" data-act="delete-calendar" data-id="${c.id}">Unlink</button>` : ''}<button class="btn dark grow" type="submit">${c ? 'Save' : 'Link it'}</button></div></form>`);
 }
