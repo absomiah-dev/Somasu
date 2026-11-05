@@ -12,11 +12,14 @@
    On every new build: change APP_RELEASE and APP_UPDATED, the <meta name="app-version">
    tag in index.html and the CACHE name in sw.js, and add the release at the top of RELEASES.
    Plain English, one short sentence per item, what people will notice. */
-const APP_YEAR = '26', APP_RELEASE = 'R3', APP_UPDATED = '2 Nov 2026';
+const APP_YEAR = '26', APP_RELEASE = 'R4', APP_UPDATED = '5 Nov 2026';
 const VERSION = APP_YEAR + ' ' + APP_RELEASE;
 const VERSION_DATE = APP_UPDATED;
 const PRE_RELEASE = /^R0\./.test(APP_RELEASE);
 const RELEASES = [
+  { v: '26 R4', date: '5 Nov 2026',
+    everyone: ['An event that’s in more than one person’s linked calendar now shows once, with the faces of everyone it belongs to.', 'Tap it to see which calendars it’s in.'],
+    admin: [] },
   { v: '26 R3', date: '2 Nov 2026',
     everyone: ['There’s now a Sign out button at the top of every page, so you can sign out in one tap (it checks with you first).'],
     admin: [] },
@@ -384,7 +387,7 @@ function parseICS(text) {
       title: r.SUMMARY ? icsUnescape(r.SUMMARY.val) : '(No title)',
       location: r.LOCATION ? icsUnescape(r.LOCATION.val) : '',
       notes: r.DESCRIPTION ? icsUnescape(r.DESCRIPTION.val).slice(0, 600) : '',
-      allDay: s.allDay, start: s.d, end
+      allDay: s.allDay, start: s.d, end, uid: r.UID ? r.UID.val : ''
     };
     const ex = new Set(r.EXDATE);
     if (!r['RECURRENCE-ID'] && r.UID && moved[r.UID.val]) moved[r.UID.val].forEach(x => ex.add(x));
@@ -453,8 +456,39 @@ function eventsBetween(from, to) {
     if (cal.visible === false || S.hidden.has('c:' + cal.id)) continue;
     for (const x of (S.external[cal.id] || [])) occurrences(x, from, to).forEach(oc => out.push({ kind: 'linked', cal, x, start: oc.start, end: oc.end, title: x.title, allDay: x.allDay, colour: cal.colour || '#5567D6' }));
   }
-  return out.sort((a, b) => (b.allDay - a.allDay) || (a.start - b.start));
+  return mergeDuplicates(out).sort((a, b) => (b.allDay - a.allDay) || (a.start - b.start));
 }
+/* The same event in several linked calendars (a shared invite, the school calendar linked by two
+   people) shows once, with the faces of everyone whose calendar it's in. A match is the same event
+   id (UID) at the same time, or the same title (ignoring capitals and spaces) with exactly the same
+   start and end. A linked copy of a Somasu family event folds into the family event. Two family
+   events are never merged, and near-matches ("Swim" and "Swimming lesson") stay separate. */
+const normTitle = t => String(t || '').toLowerCase().replace(/\s+/g, ' ').trim();
+function mergeDuplicates(list) {
+  const byKey = new Map(), byUid = new Map(), res = [];
+  for (const e of list) {
+    const key = normTitle(e.title) + '|' + (e.allDay ? 'a' : 't') + '|' + (+e.start) + '|' + (+e.end);
+    const u = e.kind === 'linked' && e.x.uid ? e.x.uid + '|' + (+e.start) : '';
+    const hit = e.kind === 'linked' ? (byKey.get(key) || (u && byUid.get(u))) : null;
+    if (hit) {
+      if (!hit.cals.includes(e.cal)) hit.cals.push(e.cal);
+      if (hit.kind === 'linked' && new Set(calOwners(hit)).size > 1) hit.colour = '#E0A12E';
+      if (u && !byUid.has(u)) byUid.set(u, hit);
+      continue;
+    }
+    e.cals = e.kind === 'linked' ? [e.cal] : [];
+    res.push(e);
+    if (!byKey.has(key)) byKey.set(key, e);
+    if (u) byUid.set(u, e);
+  }
+  return res;
+}
+const calOwners = e => (e.cals || []).map(c => c.created_by).filter(id => memberById(id));
+function avStack(ids) {
+  const u = [...new Set(ids)].filter(id => memberById(id)); if (!u.length) return '';
+  return `<span class="av-stack" title="${esc(u.map(mName).join(', '))}">${u.slice(0, 3).map(id => avatar(id)).join('')}${u.length > 3 ? `<span class="av more">+${u.length - 3}</span>` : ''}</span>`;
+}
+const calLabel = c => (memberById(c.created_by) ? mName(c.created_by) + ' · ' : '') + c.name;
 function onDay(list, d) { const a = sod(d), b = addDays(a, 1); return list.filter(e => e.start < b && e.end > a); }
 
 /* ------------------------------------------------------------------ rendering */
@@ -523,7 +557,8 @@ function viewHome() {
 }
 function evRow(e, showDay) {
   const time = e.allDay ? 'All day' : fmtTime(e.start);
-  const who = e.kind === 'family' ? ((e.ev.who || []).length ? `<span class="av-stack">${e.ev.who.map(id => avatar(id)).join('')}</span>` : '<span class="small muted">Everyone</span>') : `<span class="ev-src small muted">${esc(e.cal.name)}</span>`;
+  const who = e.kind === 'family' ? ((e.ev.who || []).length ? avStack(e.ev.who.concat(calOwners(e))) : '<span class="small muted">Everyone</span>')
+    : e.cals.length > 1 ? (avStack(calOwners(e)) || `<span class="ev-src small muted">${e.cals.length} calendars</span>`) : `<span class="ev-src small muted">${esc(e.cal.name)}</span>`;
   const loc = e.kind === 'family' ? e.ev.location : e.x.location;
   return `<div class="row" data-act="${e.kind === 'family' ? 'edit-event' : 'view-linked'}" data-id="${e.kind === 'family' ? e.ev.id : ''}" data-cal="${e.kind === 'linked' ? e.cal.id : ''}" data-start="${+e.start}" style="cursor:pointer">
     <span class="evbar" style="background:${esc(e.colour)}"></span>
@@ -620,12 +655,13 @@ function viewCalendar() {
 }
 function evCard(e) {
   const fam = e.kind === 'family';
-  const who = fam ? ((e.ev.who || []).length ? e.ev.who.map(mName).join(', ') : 'Everyone') : '';
+  const who = fam ? ((e.ev.who || []).length ? [...new Set(e.ev.who.concat(calOwners(e)))].map(mName).join(', ') : 'Everyone')
+    : e.cals.length > 1 ? [...new Set(calOwners(e))].map(mName).join(', ') : '';
   const loc = fam ? e.ev.location : e.x.location;
   return `<button class="ev" data-act="${fam ? 'edit-event' : 'view-linked'}" data-id="${fam ? e.ev.id : ''}" data-cal="${fam ? '' : e.cal.id}" data-start="${+e.start}">
     <span class="evbar" style="background:${esc(e.colour)}"></span>
     <span class="when">${e.allDay ? 'All day' : fmtTime(e.start)}${!e.allDay ? `<small>${fmtTime(e.end)}</small>` : ''}</span>
-    <span class="main"><span class="t">${esc(e.title)}</span>${fam ? '' : `<span class="src">${esc(e.cal.name)}</span>`}<br><span class="m">${[who, loc].filter(Boolean).map(esc).join(' · ')}</span></span></button>`;
+    <span class="main"><span class="t">${esc(e.title)}</span>${fam ? '' : `<span class="src">${e.cals.length > 1 ? e.cals.length + ' calendars' : esc(e.cal.name)}</span>`}<br><span class="m">${[who, loc].filter(Boolean).map(esc).join(' · ')}</span></span>${!fam && e.cals.length > 1 ? avStack(calOwners(e)) : ''}</button>`;
 }
 
 /* ---------- Bookings ---------- */
@@ -1176,9 +1212,12 @@ const ACT = {
     const cal = S.calendars.find(c => c.id === el.dataset.cal); const st = +el.dataset.start;
     const x = (S.external[cal.id] || []).find(x => occurrences(x, new Date(st - 1), new Date(st + 1)).some(o => +o.start === st)) || {};
     const s = new Date(st), e = new Date(st + (x.end - x.start || 0));
-    modal(x.title || 'Event', `<p><span class="src" style="background:var(--indigo-tint);padding:3px 8px;border-radius:6px;font-size:12px;font-weight:700">${esc(cal.name)}</span></p>
+    const m = eventsBetween(new Date(st - 1), new Date(st + 1)).find(o => o.kind === 'linked' && +o.start === st && o.cals.includes(cal));
+    const cals = m ? m.cals : [cal];
+    const tag = c => `<span class="src" style="display:inline-block;background:var(--indigo-tint);padding:3px 8px;border-radius:6px;font-size:12px;font-weight:700;margin:0 4px 4px 0">${esc(cals.length > 1 ? calLabel(c) : c.name)}</span>`;
+    modal(x.title || 'Event', `<p>${cals.length > 1 ? '<span class="small muted">In ' + cals.length + ' calendars:</span><br>' : ''}${cals.map(tag).join('')}</p>
       <p><b>${relDay(s)}</b><br>${x.allDay ? 'All day' : fmtTime(s) + ' to ' + fmtTime(e)}</p>${x.location ? `<p>📍 ${esc(x.location)}</p>` : ''}${x.notes ? `<p class="small muted" style="white-space:pre-wrap">${esc(x.notes)}</p>` : ''}
-      <p class="small muted">From a linked calendar, so it's read-only here. Change it in ${esc(cal.name)}.</p>`);
+      <p class="small muted">From a linked calendar, so it's read-only here. Change it in ${esc(cals.length > 1 ? 'the calendars it came from' : cal.name)}.</p>`);
   },
   'allday-toggle'(el) { el.form.querySelectorAll('.tm').forEach(x => x.classList.toggle('hidden', el.checked)); },
   'delete-event'(el) {
@@ -1425,6 +1464,6 @@ async function boot() {
   window.addEventListener('resize', fit);
 })();
 
-window.__somasu = { S, parseICS, occurrences, guessCat }; // handy for testing in the browser console
+window.__somasu = { S, parseICS, occurrences, guessCat, eventsBetween, normTitle, calOwners, render }; // handy for testing in the browser console
 boot();
 })();
