@@ -1,7 +1,7 @@
 // Somasu: tells the rest of the family about a change, as a phone/computer
 // notification. Called by the app straight after a save. The caller must be signed in
 // and on the family list; they never get notified about their own changes.
-import { rest, whoIs, sendToSubs, env } from '../lib/somasu.mjs';
+import { rest, whoIs, sendToSubs, env, reason } from '../lib/somasu.mjs';
 
 const PREF = { items: 'lists', event: 'events', booking: 'bookings', test: null };
 const clip = (s, n) => String(s == null ? '' : s).replace(/\s+/g, ' ').trim().slice(0, n);
@@ -33,6 +33,11 @@ export function compose(me, b) {
 }
 
 export default async (req) => {
+  try { return await handle(req); }
+  catch (e) { console.error('notify failed', e); return Response.json({ error: reason(e) }, { status: 500 }); }
+};
+
+async function handle(req) {
   if (req.method !== 'POST') return new Response('Use POST', { status: 405 });
   if (!env('SUPABASE_SECRET_KEY') || !env('VAPID_PRIVATE_KEY')) return new Response('Notifications are not set up on the server', { status: 503 });
   const me = await whoIs(req);
@@ -48,7 +53,7 @@ export default async (req) => {
     subs = subs.filter(s => s.member_id !== me.id && (s.prefs || {})[PREF[b.kind]] !== false);
     if (b.kind === 'event' && Array.isArray(b.who) && b.who.length) subs = subs.filter(s => b.who.includes(s.member_id));
   }
-  return Response.json(await sendToSubs(subs, msg));
-};
+  return Response.json(Object.assign({ devices: subs.length }, await sendToSubs(subs, msg)));
+}
 
 export const config = { path: '/api/notify' };

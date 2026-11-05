@@ -45,17 +45,26 @@ export async function sendToSubs(subs, msg) {
     webpush.setVapidDetails(env('VAPID_SUBJECT') || 'mailto:admin@example.com', env('VAPID_PUBLIC_KEY'), env('VAPID_PRIVATE_KEY'));
     sender = (sub, payload, opts) => webpush.sendNotification(sub, payload, opts);
   }
-  let sent = 0, gone = 0, failed = 0;
+  let sent = 0, gone = 0, failed = 0; const codes = [];
   await Promise.all(subs.map(async s => {
     try {
       await sender({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify(msg), { TTL: 6 * 3600, urgency: 'normal' });
       sent++;
     } catch (e) {
       if (e && (e.statusCode === 404 || e.statusCode === 410)) { gone++; await rest('push_subscriptions?id=eq.' + s.id, { method: 'DELETE' }).catch(() => {}); }
-      else { failed++; console.warn('push failed', e && (e.statusCode || e.message)); }
+      else { failed++; codes.push(e && e.statusCode || 0); console.warn('push failed', e && (e.statusCode || e.message)); }
     }
   }));
-  return { sent, gone, failed };
+  return { sent, gone, failed, codes };
+}
+
+/** A plain-English reason for a server error, safe to show a signed-in family member (never includes a key). */
+export function reason(e) {
+  const m = String(e && e.message || e || '');
+  if (/^database 401/.test(m)) return 'The server’s Supabase secret key is wrong. An admin needs to update SUPABASE_SECRET_KEY in Netlify (Admin guide, Troubleshooting).';
+  if (/^database/.test(m)) return 'The server couldn’t read the family database (' + m.slice(0, 60) + ').';
+  if (/vapid/i.test(m)) return 'The notification keys on the server aren’t set up right (' + m.slice(0, 80) + '). An admin needs to check the VAPID settings in Netlify.';
+  return 'Something went wrong on the server.';
 }
 
 /* ---- dates, always on UK time ---- */

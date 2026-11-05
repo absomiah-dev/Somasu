@@ -37,6 +37,12 @@ sentLog=[]; await call('M',{kind:'booking',action:'added',title:'Family car',whe
 ok('booking text', sentLog.length===2 && sentLog[0].msg.body==='Ammita booked it for Kofi · Mon 2 Nov 09:00–13:00', sentLog);
 sentLog=[]; await call('M',{kind:'test'}); ok('test: only own devices', sentLog.length===1&&sentLog[0].to==='https://p/2', sentLog);
 r=await call('stranger',{kind:'test'}); ok('stranger refused', r.status===401);
+sentLog=[]; r=await (await call('M',{kind:'test'})).json(); ok('test: reports devices and sent', r.devices===1 && r.sent===1, r);
+lib._setSender(async ()=>{const e=new Error('forbidden');e.statusCode=403;throw e;}); r=await (await call('M',{kind:'test'})).json(); ok('test: refused push reports failed with code', r.failed===1 && r.sent===0 && r.codes[0]===403, r);
+lib._setSender(async (sub,payload)=>{ if(sub.endpoint==='https://p/gone'){const e=new Error('gone');e.statusCode=410;throw e;} sentLog.push({to:sub.endpoint,msg:JSON.parse(payload)}); });
+{ const f=globalThis.fetch; globalThis.fetch=async(url,opts={})=>new URL(url).pathname==='/rest/v1/members'?new Response('{"message":"Invalid API key"}',{status:401}):f(url,opts);
+  r=await call('A',{kind:'test'}); const j=await r.json(); globalThis.fetch=f;
+  ok('wrong secret key: 500 with a plain reason, no key shown', r.status===500 && /SUPABASE_SECRET_KEY/.test(j.error) && !/sb_secret_x/.test(j.error), j); }
 r=await call('A',{kind:'hack'}); ok('unknown kind refused', r.status===400);
 sentLog=[]; await call('A',{kind:'event',action:'added',title:'x',url:'javascript:alert(1)'}); ok('bad url replaced', sentLog.every(s=>s.msg.url==='./'), sentLog);
 subs.push({id:'s9',member_id:'M',endpoint:'https://p/gone',p256dh:'k',auth:'a',prefs:{}}); deleted=[];

@@ -12,11 +12,14 @@
    On every new build: change APP_RELEASE and APP_UPDATED, the <meta name="app-version">
    tag in index.html and the CACHE name in sw.js, and add the release at the top of RELEASES.
    Plain English, one short sentence per item, what people will notice. */
-const APP_YEAR = '26', APP_RELEASE = 'R5', APP_UPDATED = '5 Nov 2026';
+const APP_YEAR = '26', APP_RELEASE = 'R6', APP_UPDATED = '5 Nov 2026';
 const VERSION = APP_YEAR + ' ' + APP_RELEASE;
 const VERSION_DATE = APP_UPDATED;
 const PRE_RELEASE = /^R0\./.test(APP_RELEASE);
 const RELEASES = [
+  { v: '26 R6', date: '5 Nov 2026',
+    everyone: ['Notifications fixed: they were being held up by a setting on the server.', 'Send me a test now tells you whether it reached your device, and what to do if it didn’t.'],
+    admin: ['If notifications can’t be sent, the app now shows the reason (for example a wrong server key) instead of an error number.'] },
   { v: '26 R5', date: '5 Nov 2026',
     everyone: ['Somasu has a fresh new look: soft moringa green with butter, blush and periwinkle touches, and a new app icon.', 'The user guide and how-to videos now show the new look, and the guide explains how shared calendar events show once.', 'Installed Somasu on your phone? The new icon can take a few days to appear. To see it now, remove Somasu from your Home Screen and add it again.'],
     admin: ['The admin guide shows the new look too.'] },
@@ -1060,8 +1063,13 @@ async function setPushPref(k, v) {
 async function authHeader() { if (!client) return {}; const { data } = await client.auth.getSession(); return data.session ? { Authorization: 'Bearer ' + data.session.access_token } : {}; }
 async function testNotification() {
   if (FAMILY_MODE) {
-    const r = await fetch('/api/notify', { method: 'POST', headers: Object.assign({ 'content-type': 'application/json' }, await authHeader()), body: JSON.stringify({ kind: 'test' }) });
-    return toast(r.ok ? 'Test sent. It should arrive in a few seconds.' : 'Couldn’t send the test (' + r.status + ').');
+    let r, j = {};
+    try { r = await fetch('/api/notify', { method: 'POST', headers: Object.assign({ 'content-type': 'application/json' }, await authHeader()), body: JSON.stringify({ kind: 'test' }) }); j = await r.clone().json().catch(() => ({})); }
+    catch (e) { return toast('Couldn’t reach Somasu. Check your internet connection and try again.'); }
+    if (!r.ok) return modal('The test couldn’t be sent', `<p>${esc(j.error || (r.status === 401 ? 'Somasu didn’t recognise your sign-in. Sign out and back in, then try again.' : r.status === 503 ? 'Notifications aren’t set up on the server yet (Admin guide).' : 'The server answered with error ' + r.status + '.'))}</p>`);
+    if (j.sent > 0) return toast(`Test sent to ${j.sent === 1 ? 'your device' : j.sent + ' of your devices'}. It should arrive in a few seconds.`);
+    if (!j.devices || j.gone) return modal('No device to send to', '<p>Somasu has no working notification sign-up for you yet. Tap <b>Turn off</b>, then <b>Turn on</b> again on this device, then send another test.</p>');
+    return modal('The test couldn’t be delivered', `<p>The notification service refused it${(j.codes || []).length ? ' (code ' + esc(j.codes.join(', ')) + ')' : ''}. This usually means the notification keys in Netlify don’t match the one in the app. An admin can check this (Admin guide, Troubleshooting).</p>`);
   }
   const opts = { body: 'This is what Somasu notifications look like.', icon: 'icon-192.png', badge: 'badge-96.png', tag: 'somasu-test' };
   const reg = 'serviceWorker' in navigator && await navigator.serviceWorker.getRegistration();
