@@ -2,7 +2,7 @@
 // notifications. Pages and app files: network first, saved copy if offline.
 // Database, calendar and notification requests are never cached here.
 // Change CACHE on every release so phones pick up the new files.
-const CACHE = 'somasu-26R6';
+const CACHE = 'somasu-26R7';
 const SHELL = ['./', 'index.html', 'app.js', 'config.js', 'site.webmanifest', 'favicon.svg', 'favicon.ico', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'badge-96.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => {

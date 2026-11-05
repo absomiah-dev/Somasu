@@ -12,11 +12,14 @@
    On every new build: change APP_RELEASE and APP_UPDATED, the <meta name="app-version">
    tag in index.html and the CACHE name in sw.js, and add the release at the top of RELEASES.
    Plain English, one short sentence per item, what people will notice. */
-const APP_YEAR = '26', APP_RELEASE = 'R6', APP_UPDATED = '5 Nov 2026';
+const APP_YEAR = '26', APP_RELEASE = 'R7', APP_UPDATED = '5 Nov 2026';
 const VERSION = APP_YEAR + ' ' + APP_RELEASE;
 const VERSION_DATE = APP_UPDATED;
 const PRE_RELEASE = /^R0\./.test(APP_RELEASE);
 const RELEASES = [
+  { v: '26 R7', date: '5 Nov 2026',
+    everyone: ['New Report a problem link at the bottom of Home and Family, and in Help. It opens an email to the family admin with the page, version and device filled in.', 'Behind-the-scenes update to keep Somasu fast and secure.'],
+    admin: ['Problem reports go to SomiahDev@proton.me. Admins can change the address under Family › Problem reports (needs database script v5, run once).'] },
   { v: '26 R6', date: '5 Nov 2026',
     everyone: ['Notifications fixed: they were being held up by a setting on the server.', 'Send me a test now tells you whether it reached your device, and what to do if it didn’t.'],
     admin: ['If notifications can’t be sent, the app now shows the reason (for example a wrong server key) instead of an error number.'] },
@@ -248,7 +251,7 @@ function SupaStore(client) {
 const S = {
   tab: store_get('somasu-tab', 'home'),
   members: [], lists: [], items: [], events: [], calendars: [], facilities: [], bookings: [],
-  me: null, user: null, external: {}, extStatus: {},
+  me: null, user: null, external: {}, extStatus: {}, settings: {},
   listId: store_get('somasu-list', null), showDone: false,
   calMonth: sod(new Date()), calDay: sod(new Date()), calView: store_get('somasu-calview', 'month'),
   hidden: new Set(store_get('somasu-hidden', [])),
@@ -274,6 +277,18 @@ async function loadAll(tables = TABLES) {
     const pick = store_get('somasu-me', null);
     S.me = S.members.find(m => m.id === pick) || S.members.find(m => m.is_admin) || S.members[0] || null;
   }
+  if (tables === TABLES) await loadSettings();
+}
+/* Family settings (database script v5: app_settings). If the table isn't there yet, Somasu
+   carries on with the built-in defaults. */
+async function loadSettings() {
+  try {
+    if (FAMILY_MODE) {
+      const { data, error } = await client.from('app_settings').select('key,value');
+      if (error) throw error;
+      S.settings = Object.fromEntries((data || []).map(r => [r.key, r.value]));
+    } else S.settings = store_get('somasu-settings', {});
+  } catch (e) { console.warn('Family settings not loaded, using defaults:', e.message || e); S.settings = {}; }
 }
 
 /* ------------------------------------------------------------------ toast / modal */
@@ -520,7 +535,7 @@ function draw() {
     ${FAMILY_MODE && S.user ? `<button class="out-btn" data-act="sign-out-ask" aria-label="Sign out" title="Sign out">${I.out}<span class="ot">Sign out</span></button>` : ''}
   </header>
   <div class="layout">
-    <nav class="side" aria-label="Main">${side}<div class="foot ver">${verHtml()}</div></nav>
+    <nav class="side" aria-label="Main">${side}<div class="foot ver">${verHtml()}<br><a href="#" data-act="report">Report a problem</a></div></nav>
     <main id="main">${view()}</main>
   </div>
   ${fab ? `<button class="fab" data-act="${fab}" aria-label="Add">${I.plus}</button>` : ''}
@@ -559,7 +574,7 @@ function viewHome() {
       ${books.length ? books.map(bookRow).join('') : `<div class="empty">Nothing booked today or tomorrow.</div>`}
     </section>
   </div>
-  <p class="home-ver ver">${verHtml()}<br><a href="#" data-act="help">Help, guides and short videos</a></p>`;
+  <p class="home-ver ver">${verHtml()}<br><a href="#" data-act="help">Help, guides and short videos</a> · <a href="#" data-act="report">Report a problem</a></p>`;
 }
 function evRow(e, showDay) {
   const time = e.allDay ? 'All day' : fmtTime(e.start);
@@ -733,10 +748,13 @@ function viewMore() {
       <details class="howto"><summary>Android</summary><ol><li>Open this page in Chrome.</li><li>Tap ⋮ then <b>Install app</b> (or <b>Add to Home screen</b>).</li></ol></details>
       <details class="howto"><summary>Windows, Mac or Linux</summary><ol><li>Open this page in Chrome or Edge.</li><li>Click the install icon at the right of the address bar (or ⋮ › <b>Install Somasu</b>).</li></ol></details>
       ${deferredInstall ? `<div class="actions"><button class="btn sm" data-act="install">Install now</button></div>` : ''}</div>
+    ${isAdmin() ? `<h2>Problem reports</h2>
+    <div class="card"><p class="small" style="margin-top:0">When someone taps <b>Report a problem</b>, the email goes to <b>${esc(supportEmail())}</b>.</p>
+      <div class="actions"><button class="btn sm ghost" data-act="edit-support">Change</button></div></div>` : ''}
     <h2>Your data</h2>
     <div class="card"><p class="small" style="margin-top:0">${FAMILY_MODE ? '<b>Family mode.</b> Everything is saved in the family database and shared live with every signed-in family member.' : '<b>Try-out mode.</b> Everything is saved in this browser only. Nothing is shared until the family database is connected.'}</p>
       <div class="actions"><button class="btn sm ghost" data-act="export">${I.dl} Download a backup</button>${!FAMILY_MODE ? `<button class="btn sm ghost" data-act="reset-sample">Start again with sample data</button>` : ''}</div></div>
-    <p class="small muted ver" style="text-align:center">Somasu · ${verHtml()}<br><a href="#" data-act="help">Help and guides</a></p>
+    <p class="small muted ver" style="text-align:center">Somasu · ${verHtml()}<br><a href="#" data-act="help">Help and guides</a> · <a href="#" data-act="report">Report a problem</a></p>
   </div></div>`;
 }
 
@@ -970,6 +988,16 @@ const SAVE = {
     if (id) await store.update('facilities', id, row); else { const r = await store.insert('facilities', row); S.facilityId = r.id; }
     closeModal(); toast('Saved');
   },
+  async support(form) {
+    const email = formVal(form, 'email').toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showErr(form, 'That doesn’t look like an email address.');
+    if (FAMILY_MODE) {
+      const { error } = await client.from('app_settings').upsert({ key: 'support_email', value: email, updated_by: S.me && S.me.id, updated_at: new Date().toISOString() });
+      if (error) return showErr(form, /app_settings|relation|schema cache|does not exist/i.test(error.message) ? 'The family database needs a small update first: run database script v5 in Supabase (Admin guide).' : 'Couldn’t save: ' + error.message);
+    } else store_set('somasu-settings', Object.assign({}, store_get('somasu-settings', {}), { support_email: email }));
+    S.settings = Object.assign({}, S.settings, { support_email: email });
+    closeModal(); render(); toast('Problem reports now go to ' + email);
+  },
   async member(form, id) {
     const name = formVal(form, 'name'); if (!name) return showErr(form, 'Add a name.');
     const email = formVal(form, 'email').toLowerCase();
@@ -1112,6 +1140,32 @@ function notifySection() {
 }
 
 /* ------------------------------------------------------------------ version, What's new, Help */
+/* ---- Report a problem (Andy, 05-11-2026): an email to the family admin with the details filled in.
+   Somasu is a family app Andy manages, so there's no separate "contact the developer". The address is
+   somiahdev@proton.me unless an admin changes it on the Family page (Problem reports), which saves it in
+   the family database (app_settings, support_email). config.js supportEmail is a fallback, not needed. */
+const DEFAULT_SUPPORT_EMAIL = 'somiahdev@proton.me';
+const supportEmail = () => ((S.settings || {}).support_email || CFG.supportEmail || DEFAULT_SUPPORT_EMAIL).trim();
+const reportTo = () => [supportEmail()];
+const reportToText = () => 'the family admin';
+function browserName() { const u = navigator.userAgent; return /vivaldi/i.test(u) ? 'Vivaldi' : /edg\//i.test(u) ? 'Edge' : /samsungbrowser/i.test(u) ? 'Samsung Internet' : /firefox|fxios/i.test(u) ? 'Firefox' : /chrome|crios/i.test(u) ? 'Chrome' : /safari/i.test(u) ? 'Safari' : 'browser'; }
+function reportProblem() {
+  const to = reportTo();
+  if (!to.length) return toast('No family admin has an email address yet. An admin can add one on the Family page.');
+  const page = (TABS.find(t => t[0] === S.tab) || ['', 'Home'])[1];
+  const lines = ['What happened?', '', '', 'What were you trying to do?', '', '', '---',
+    'Please don’t include passwords.',
+    'Page: ' + page,
+    'Version: ' + VERSION + ' (' + APP_UPDATED + ')' + (FAMILY_MODE ? '' : ', try-out mode'),
+    'From: ' + (S.me ? S.me.name + (S.me.email ? ' (' + S.me.email + ')' : '') : 'not signed in'),
+    'Device: ' + deviceName() + ', ' + browserName() + (STANDALONE ? ' (installed app)' : ''),
+    'When: ' + new Date().toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    'Address: ' + location.href];
+  const href = 'mailto:' + to.map(encodeURIComponent).join(',') + '?subject=' + encodeURIComponent('Somasu problem (' + VERSION + ', ' + page + ')') + '&body=' + encodeURIComponent(lines.join('\r\n'));
+  modal('Report a problem', `<p>This opens your email app with a message to ${esc(reportToText())} (${esc(to[0])}), with the page, version and device already filled in. Just say what happened.</p>
+    <div class="actions"><a class="btn grow" id="repGo" href="${esc(href)}">Write the email</a></div>
+    <p class="small muted">No email app? Send the details to ${esc(to[0])}.</p>`, s => { s.querySelector('#repGo').onclick = () => setTimeout(closeModal, 300); });
+}
 function verHtml() {
   return `Version <a href="#" data-act="whatsnew" data-v="${VERSION}"><b>${VERSION}</b></a>${PRE_RELEASE ? ' (pre-release)' : ''} · ${APP_UPDATED} · <a href="#" data-act="whatsnew"><b>What’s new</b></a>`;
 }
@@ -1144,6 +1198,7 @@ function showHelp() {
     <div class="actions" style="margin-top:6px"><a class="btn sm" href="${g.file}" target="_blank" rel="noopener">Open</a><a class="btn sm ghost" href="${g.file}" download>${I.dl} Download</a></div>
     ${list(g)}
     ${isAdmin() ? `<h3 class="help-h">${esc(a.title)} <span class="tag">Admins</span></h3><div class="actions" style="margin-top:6px"><a class="btn sm" href="${a.file}" target="_blank" rel="noopener">Open</a><a class="btn sm ghost" href="${a.file}" download>${I.dl} Download</a></div>${list(a)}` : ''}
+    <h3 class="help-h">Something not working?</h3><p class="small">Tell ${esc(reportToText())}. Somasu fills in the details for you.</p><div class="actions" style="margin-top:6px"><button class="btn sm" data-act="report">Report a problem</button></div>
     <p class="small muted ver" style="text-align:center;margin-top:18px">${verHtml()}</p>`);
 }
 
@@ -1305,6 +1360,13 @@ const ACT = {
   async 'push-pref'(el) { await setPushPref(el.dataset.k, el.checked); },
   async 'push-test'() { await testNotification(); },
   help() { showHelp(); },
+  report() { reportProblem(); },
+  'edit-support'() {
+    modal('Problem reports', `<form data-form="support" autocomplete="off">
+      <div class="f"><label for="supE">Send Report a problem emails to</label><input id="supE" type="email" name="email" required value="${esc(supportEmail())}" inputmode="email"></div>
+      <p class="small muted">Everyone in the family uses this address. Starts as ${esc(DEFAULT_SUPPORT_EMAIL)}.</p>
+      <div class="actions"><button type="button" class="btn ghost" data-act="close">Cancel</button><button type="submit" class="btn dark grow">Save</button></div></form>`);
+  },
   video(el) {
     const v = VIDEOS.find(x => x.id === el.dataset.id); if (!v) return;
     modal(v.title, `<video src="${v.file}" poster="${v.file.replace('.mp4', '.jpg')}" controls autoplay muted playsinline style="width:100%;max-height:70vh;border-radius:14px;background:#000"></video>
