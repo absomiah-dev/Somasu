@@ -4,6 +4,11 @@
   publish = "public"
   functions = "netlify/functions"
 
+# Fix the Node version (the engine that runs the server functions) to the one every Somasu
+# test runs on, so a Netlify default change can't alter it without us knowing (26 R8).
+[build.environment]
+  NODE_VERSION = "22"
+
 [functions]
   node_bundler = "esbuild"
 

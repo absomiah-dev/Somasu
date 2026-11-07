@@ -12,11 +12,14 @@
    On every new build: change APP_RELEASE and APP_UPDATED, the <meta name="app-version">
    tag in index.html and the CACHE name in sw.js, and add the release at the top of RELEASES.
    Plain English, one short sentence per item, what people will notice. */
-const APP_YEAR = '26', APP_RELEASE = 'R7', APP_UPDATED = '5 Nov 2026';
+const APP_YEAR = '26', APP_RELEASE = 'R8', APP_UPDATED = '7 Nov 2026';
 const VERSION = APP_YEAR + ' ' + APP_RELEASE;
 const VERSION_DATE = APP_UPDATED;
 const PRE_RELEASE = /^R0\./.test(APP_RELEASE);
 const RELEASES = [
+  { v: '26 R8', date: '7 Nov 2026',
+    everyone: ['Every password box now has a Show button, so you can check what you’ve typed before you sign in or save a new password. Tap Hide to cover it again.', 'On a computer, Somasu now tells you when Caps Lock is on while you type a password.', 'A new how-to video in Help shows signing in and changing your password.'],
+    admin: ['The admin guide explains how names now show in Supabase’s Users list, and how Show and the Caps Lock note help someone who can’t sign in.'] },
   { v: '26 R7', date: '5 Nov 2026',
     everyone: ['New Report a problem link at the bottom of Home and Family, and in Help. It opens an email to the family admin with the page, version and device filled in.', 'Behind-the-scenes update to keep Somasu fast and secure.'],
     admin: ['Problem reports go to SomiahDev@proton.me. Admins can change the address under Family › Problem reports (needs database script v5, run once).'] },
@@ -85,7 +88,8 @@ const VIDEOS = [
   { id: 'event', file: 'guides/videos/somasu-02-calendar-event.mp4', title: 'Add an event with a reminder', topic: 'calendar' },
   { id: 'booking', file: 'guides/videos/somasu-03-booking.mp4', title: 'Book the car (and what a clash looks like)', topic: 'bookings' },
   { id: 'notify', file: 'guides/videos/somasu-04-notifications.mp4', title: 'Turn on notifications', topic: 'family' },
-  { id: 'linkcal', file: 'guides/videos/somasu-05-link-calendar.mp4', title: 'Link a Google, Outlook or school calendar', topic: 'family' }
+  { id: 'linkcal', file: 'guides/videos/somasu-05-link-calendar.mp4', title: 'Link a Google, Outlook or school calendar', topic: 'family' },
+  { id: 'passwords', file: 'guides/videos/somasu-06-passwords.mp4', title: 'Sign in, and check your password with Show', topic: 'family' }
 ];
 const CFG = window.SOMASU_CONFIG || {};
 const FAMILY_MODE = !!(CFG.supabaseUrl && CFG.supabaseKey);
@@ -1418,8 +1422,32 @@ function passwordFields(form) {
     return null;
   };
 }
-const NEW_PW_FIELDS = `<div class="f"><label for="pw1">New password</label><input id="pw1" type="password" name="pw1" autocomplete="new-password" required></div>
-    <div class="f"><label for="pw2">Type it again</label><input id="pw2" type="password" name="pw2" autocomplete="new-password" required><div class="pwlist"></div></div>`;
+// Password box with a Show / Hide button (R8). One handler for every password box in the app;
+// boxes go back to hidden when the form is sent, so password managers still recognise them.
+const pwBox = (id, name, ac) => `<div class="pwwrap"><input id="${id}" type="password" name="${name}" autocomplete="${ac}" required spellcheck="false" autocapitalize="off"><button type="button" class="pwshow" aria-controls="${id}" aria-pressed="false" aria-label="Show password">Show</button></div><p class="capsnote" role="status" hidden>Caps Lock is on</p>`;
+function setPwShown(btn, shown) {
+  const inp = btn.parentNode.querySelector('input'); if (!inp) return;
+  inp.type = shown ? 'text' : 'password';
+  btn.textContent = shown ? 'Hide' : 'Show';
+  btn.setAttribute('aria-pressed', String(shown)); btn.setAttribute('aria-label', shown ? 'Hide password' : 'Show password');
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('.pwshow'); if (!b) return;
+  e.preventDefault(); e.stopPropagation();
+  const inp = b.parentNode.querySelector('input'), shown = inp.type === 'password';
+  setPwShown(b, shown); inp.focus(); try { const n = inp.value.length; inp.setSelectionRange(n, n); } catch (_) {}
+}, true);
+// "Caps Lock is on" note under password boxes (computers; phone keyboards don't report it).
+const capsCheck = e => {
+  const inp = e.target; if (!inp || !inp.closest || !inp.closest('.pwwrap') || typeof e.getModifierState !== 'function') return;
+  const note = inp.closest('.pwwrap').nextElementSibling; if (!note || !note.classList.contains('capsnote')) return;
+  note.hidden = !e.getModifierState('CapsLock');
+};
+document.addEventListener('keydown', capsCheck, true); document.addEventListener('keyup', capsCheck, true);
+document.addEventListener('focusout', e => { const w = e.target && e.target.closest && e.target.closest('.pwwrap'); if (w && w.nextElementSibling && w.nextElementSibling.classList.contains('capsnote')) w.nextElementSibling.hidden = true; }, true);
+document.addEventListener('submit', e => { e.target.querySelectorAll && e.target.querySelectorAll('.pwshow').forEach(b => setPwShown(b, false)); }, true);
+const NEW_PW_FIELDS = `<div class="f"><label for="pw1">New password</label>${pwBox('pw1', 'pw1', 'new-password')}</div>
+    <div class="f"><label for="pw2">Type it again</label>${pwBox('pw2', 'pw2', 'new-password')}<div class="pwlist"></div></div>`;
 
 function signInScreen(msg, info) {
   $('#app').innerHTML = `<div class="signin"><div class="box">
@@ -1428,7 +1456,7 @@ function signInScreen(msg, info) {
     ${msg ? `<div class="err">${esc(msg)}</div>` : ''}${info ? `<div class="banner">${esc(info)}</div>` : ''}
     <form id="s1" autocomplete="on">
       <div class="f"><label for="em">Email</label><input id="em" type="email" name="email" required autocomplete="username" value="${esc(store_get('somasu-email', ''))}"></div>
-      <div class="f"><label for="pw">Password</label><input id="pw" type="password" name="password" required autocomplete="current-password"></div>
+      <div class="f"><label for="pw">Password</label>${pwBox('pw', 'password', 'current-password')}</div>
       <div class="actions"><button class="btn dark grow" type="submit">Sign in</button></div>
       <p class="small" style="text-align:center;margin-bottom:0"><a href="#" id="forgot">Forgotten your password?</a></p></form>
     <form id="s2" class="hidden" autocomplete="on">
