@@ -8,6 +8,8 @@ results.json holds every {{PLACEHOLDER}} as a key, plus five lists:
   "recs":      [{"REC_LABEL","REC_TEXT","CHIP"}]
   "staged":    [{"STAGED_ITEM","STAGED_STATE","CHIP"}]               (empty = no table under C)
   "checks":    [{"CHECK_NAME","CHECK_DETAIL","CHECK_RESULT","CHIP"}]
+  "ideas":     [{"IDEA_NO","IDEA_TITLE","IDEA_TEXT","IDEA_EFFORT"}]   (template v3; empty = no list under F)
+APPROVAL_TITLE / APPROVAL_TEXT (template v3): fill on preview runs and when a deploy waits for approval; "" hides the box.
 Tones (STATUS, NEXT, DB, PUBLIC, SIGNUP and every CHIP) are one of OK, WARN, BAD, INFO.
 Leave CTA_URL empty for no button. Text must already be HTML-escaped (&amp; &lt; &gt;).
 Stops with "Unfilled placeholders" if anything is missing.
@@ -16,7 +18,7 @@ import json, re, sys
 
 TONES = {"OK": ("#1e8a5a", "#e6f4ec"), "WARN": ("#8a5a00", "#fdf1d6"),
          "BAD": ("#b0301e", "#fbe6e2"), "INFO": ("#5e6b64", "#eef0ec")}
-LISTS = ["actions", "libraries", "recs", "staged", "checks"]
+LISTS = ["actions", "libraries", "recs", "staged", "checks", "ideas"]
 
 
 def tone(d, key, prefix):

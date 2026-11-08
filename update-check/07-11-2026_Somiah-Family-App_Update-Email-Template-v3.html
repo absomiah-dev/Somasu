@@ -1,0 +1,139 @@
+<!-- Somasu update check email template (v3, 07-11-2026: approval box for preview runs, section F ideas to improve Somasu).
+     Filled by fill_email.py from a results JSON (see the example data file). Email-safe: tables and inline styles only, no CSS shorthand "background:" (Gmail's sending tool strips it), background-color only.
+     One image: the Somasu icon, sent as the first and only inline attachment and referenced as cid:att0.
+     Somiah brand: Sika Gold header, Forest Ink text, Royal Green table headers and button, gold section rules.
+     Tones: OK green (#1e8a5a on #e6f4ec), WARN amber (#8a5a00 on #fdf1d6), BAD red (#b0301e on #fbe6e2), INFO grey (#56655c on #eef0ec).
+     Markers: an IF block (IF name ... END IF name) is dropped when the list or value called name is empty; a REPEAT block (REPEAT name ... END REPEAT name) repeats once per row of the list called name. -->
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>Somasu update check</title></head>
+<body style="margin:0;padding:0;background-color:#f3f6f1;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f6f1;"><tr><td align="center" style="padding:20px 10px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background-color:#ffffff;border-radius:12px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;color:#1d3328;">
+
+  <!-- Header: Sika Gold, as the app -->
+  <tr><td style="background-color:#9fbdaa;padding:14px 24px;border-bottom:4px solid #3b6a50;">
+    <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+      <td valign="middle" width="52" style="padding-right:12px;"><img src="cid:att0" width="52" height="52" alt="Somasu" style="display:block;border:2px solid #ffffff;border-radius:12px;width:52px;height:52px;color:#1d3328;font-size:11px;font-weight:bold;"></td>
+      <td valign="middle"><div style="font-size:22px;font-weight:bold;color:#1d3328;line-height:1.2;">Somasu</div><div style="font-size:13px;color:#1d3328;margin-top:2px;">Somiah family planner</div></td>
+    </tr></table>
+  </td></tr>
+
+  <!-- Title -->
+  <tr><td style="padding:18px 24px 0;">
+    <div style="font-size:22px;font-weight:bold;color:#1d3328;">{{RUN_TYPE}}</div>
+    <div style="font-size:13px;color:#56655c;margin-top:3px;">{{RUN_DATE_LONG}} · {{RUN_TIME}} UK{{TEST_RUN_NOTE}}</div>
+  </td></tr>
+
+  <!-- Status banner -->
+  <tr><td style="padding:14px 24px 6px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:{{STATUS_BG}};border-left:6px solid {{STATUS_COLOUR}};border-radius:6px;"><tr><td style="padding:14px 16px;">
+      <div style="font-size:20px;font-weight:bold;color:{{STATUS_COLOUR}};">{{STATUS_ICON}} {{STATUS_TITLE}}</div>
+      <div style="font-size:14px;line-height:1.5;margin-top:4px;">{{STATUS_LINE}}</div>
+    </td></tr></table>
+  </td></tr>
+
+  <!-- IF APPROVAL_TEXT -->
+  <tr><td style="padding:8px 24px 4px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#dce0f8;border:2px solid #3b6a50;border-radius:8px;"><tr><td style="padding:12px 16px;">
+      <div style="font-size:15px;font-weight:bold;">Your approval: {{APPROVAL_TITLE}}</div>
+      <div style="font-size:14px;line-height:1.55;margin-top:6px;">{{APPROVAL_TEXT}}</div>
+      <div style="font-size:14px;line-height:1.55;margin-top:8px;"><b>Reply APPROVE</b> to send it live, or <b>Reply HOLD</b> to keep it back. Put the word at the very start of your reply.</div>
+    </td></tr></table>
+  </td></tr>
+  <!-- END IF APPROVAL_TEXT -->
+
+  <!-- Four key numbers -->
+  <tr><td style="padding:10px 18px 4px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="6"><tr>
+      <td width="25%" valign="top" style="background-color:#f3f6f1;border-radius:8px;padding:12px;"><div style="font-size:11px;color:#56655c;">Live version</div><div style="font-size:18px;font-weight:bold;margin-top:4px;white-space:nowrap;">{{LIVE_VERSION}}</div></td>
+      <td width="25%" valign="top" style="background-color:#f3f6f1;border-radius:8px;padding:12px;"><div style="font-size:11px;color:#56655c;">Deploy</div><div style="font-size:18px;font-weight:bold;margin-top:4px;white-space:nowrap;">{{DEPLOY_SHORT}}</div><div style="font-size:11px;color:#56655c;margin-top:2px;">{{CREDITS}} credits</div></td>
+      <td width="25%" valign="top" style="background-color:#f3f6f1;border-radius:8px;padding:12px;"><div style="font-size:11px;color:#56655c;">Next update</div><div style="font-size:18px;font-weight:bold;margin-top:4px;white-space:nowrap;color:{{NEXT_COLOUR}};">{{NEXT_SHORT}}</div><div style="font-size:11px;color:#56655c;margin-top:2px;">{{NEXT_SUB}}</div></td>
+      <td width="25%" valign="top" style="background-color:#f3f6f1;border-radius:8px;padding:12px;"><div style="font-size:11px;color:#56655c;">Database</div><div style="font-size:18px;font-weight:bold;margin-top:4px;white-space:nowrap;color:{{DB_COLOUR}};">{{DB_SHORT}}</div><div style="font-size:11px;color:#56655c;margin-top:2px;">{{DB_TIME}}</div></td>
+    </tr></table>
+  </td></tr>
+
+  <!-- IF actions -->
+  <tr><td style="padding:10px 24px 4px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#fcefd3;border:1px solid #9fbdaa;border-radius:8px;"><tr><td style="padding:12px 16px;">
+      <div style="font-size:15px;font-weight:bold;">For you to do</div>
+      <ol style="margin:8px 0 0 18px;padding:0;font-size:14px;line-height:1.55;">
+        <!-- REPEAT actions --><li style="margin-bottom:4px;">{{ACTION}}</li><!-- END REPEAT actions -->
+      </ol>
+      <!-- IF CTA_URL -->
+      <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:10px;"><tr><td style="background-color:#3b6a50;border-radius:6px;"><a href="{{CTA_URL}}" style="display:inline-block;padding:10px 18px;font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;">{{CTA_LABEL}} &rarr;</a></td></tr></table>
+      <!-- END IF CTA_URL -->
+    </td></tr></table>
+  </td></tr>
+  <!-- END IF actions -->
+
+  <!-- A. Patching and updates -->
+  <tr><td style="padding:18px 24px 4px;">
+    <div style="font-size:16px;font-weight:bold;border-bottom:2px solid #9fbdaa;padding-bottom:6px;">A. Patching and updates</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:10px;font-size:13px;border-collapse:collapse;">
+      <tr style="background-color:#3b6a50;color:#ffffff;"><td style="padding:7px 8px;font-weight:bold;">Part</td><td style="padding:7px 8px;font-weight:bold;">In use</td><td style="padding:7px 8px;font-weight:bold;">Latest</td><td style="padding:7px 8px;font-weight:bold;">Status</td></tr>
+      <!-- REPEAT libraries --><tr style="border-bottom:1px solid #dce4dc;"><td style="padding:7px 8px;"><b>{{LIB_NAME}}</b><br><span style="color:#56655c;font-size:12px;">{{LIB_PURPOSE}}</span></td><td style="padding:7px 8px;">{{LIB_IN_USE}}</td><td style="padding:7px 8px;">{{LIB_LATEST}}</td><td style="padding:7px 8px;"><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:bold;white-space:nowrap;background-color:{{CHIP_BG}};color:{{CHIP_COLOUR}};">{{LIB_STATUS}}</span></td></tr><!-- END REPEAT libraries -->
+    </table>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:12px;font-size:14px;line-height:1.5;">
+      <!-- REPEAT recs --><tr><td valign="top" width="118" style="padding:5px 0;"><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:bold;white-space:nowrap;background-color:{{CHIP_BG}};color:{{CHIP_COLOUR}};">{{REC_LABEL}}</span></td><td style="padding:5px 0;">{{REC_TEXT}}</td></tr><!-- END REPEAT recs -->
+    </table>
+  </td></tr>
+
+  <!-- B. Deploy -->
+  <tr><td style="padding:18px 24px 4px;">
+    <div style="font-size:16px;font-weight:bold;border-bottom:2px solid #9fbdaa;padding-bottom:6px;">B. Deploy</div>
+    <p style="font-size:14px;line-height:1.5;margin:10px 0 0;">{{DEPLOY_TEXT}}</p>
+  </td></tr>
+
+  <!-- C. Next update -->
+  <tr><td style="padding:18px 24px 4px;">
+    <div style="font-size:16px;font-weight:bold;border-bottom:2px solid #9fbdaa;padding-bottom:6px;">C. Next update (06_Next-Update)</div>
+    <p style="font-size:14px;line-height:1.5;margin:10px 0 0;">{{NEXT_TEXT}}</p>
+    <!-- IF staged -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;font-size:13px;border-collapse:collapse;">
+      <!-- REPEAT staged --><tr style="border-bottom:1px solid #dce4dc;"><td style="padding:6px 8px;">{{STAGED_ITEM}}</td><td align="right" style="padding:6px 8px;"><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:bold;white-space:nowrap;background-color:{{CHIP_BG}};color:{{CHIP_COLOUR}};">{{STAGED_STATE}}</span></td></tr><!-- END REPEAT staged -->
+    </table>
+    <!-- END IF staged -->
+  </td></tr>
+
+  <!-- D. Live site -->
+  <tr><td style="padding:18px 24px 4px;">
+    <div style="font-size:16px;font-weight:bold;border-bottom:2px solid #9fbdaa;padding-bottom:6px;">D. Live site</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:10px;font-size:13px;border-collapse:collapse;">
+      <!-- REPEAT checks --><tr style="border-bottom:1px solid #dce4dc;"><td style="padding:6px 8px;">{{CHECK_NAME}}</td><td style="padding:6px 8px;color:#56655c;">{{CHECK_DETAIL}}</td><td align="right" style="padding:6px 8px;"><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:bold;white-space:nowrap;background-color:{{CHIP_BG}};color:{{CHIP_COLOUR}};">{{CHECK_RESULT}}</span></td></tr><!-- END REPEAT checks -->
+    </table>
+  </td></tr>
+
+  <!-- E. Database and sign-in -->
+  <tr><td style="padding:18px 24px 4px;">
+    <div style="font-size:16px;font-weight:bold;border-bottom:2px solid #9fbdaa;padding-bottom:6px;">E. Database and sign-in</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:10px;font-size:13px;border-collapse:collapse;">
+      <tr style="border-bottom:1px solid #dce4dc;"><td style="padding:6px 8px;width:42%;">Keep-alive reply</td><td style="padding:6px 8px;">{{DB_REPLY}}</td></tr>
+      <tr style="border-bottom:1px solid #dce4dc;"><td style="padding:6px 8px;">HTTP code · response time</td><td style="padding:6px 8px;">{{DB_HTTP}} · {{DB_TIME}}</td></tr>
+      <tr style="border-bottom:1px solid #dce4dc;"><td style="padding:6px 8px;">What it means</td><td style="padding:6px 8px;">{{DB_MEANING}}</td></tr>
+      <tr style="border-bottom:1px solid #dce4dc;"><td style="padding:6px 8px;">Family data hidden from the public</td><td style="padding:6px 8px;"><span style="font-weight:bold;color:{{PUBLIC_COLOUR}};">{{PUBLIC_SHORT}}</span> · {{PUBLIC_DETAIL}}</td></tr>
+      <tr style="border-bottom:1px solid #dce4dc;"><td style="padding:6px 8px;">New sign-ups closed</td><td style="padding:6px 8px;"><span style="font-weight:bold;color:{{SIGNUP_COLOUR}};">{{SIGNUP_SHORT}}</span> · {{SIGNUP_DETAIL}}</td></tr>
+      <tr><td style="padding:6px 8px;">Reminders and keep-awake job</td><td style="padding:6px 8px;">{{REMINDERS_LINE}}</td></tr>
+    </table>
+  </td></tr>
+
+  <!-- F. Ideas to improve Somasu -->
+  <tr><td style="padding:18px 24px 4px;">
+    <div style="font-size:16px;font-weight:bold;border-bottom:2px solid #9fbdaa;padding-bottom:6px;">F. Ideas to improve Somasu</div>
+    <!-- IF ideas -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:10px;font-size:14px;line-height:1.5;">
+      <!-- REPEAT ideas --><tr><td valign="top" width="30" style="padding:6px 0;font-weight:bold;">{{IDEA_NO}}.</td><td style="padding:6px 0;"><b>{{IDEA_TITLE}}</b><br>{{IDEA_TEXT}}<br><span style="color:#56655c;font-size:12px;">{{IDEA_EFFORT}}</span></td></tr><!-- END REPEAT ideas -->
+    </table>
+    <!-- END IF ideas -->
+    <p style="font-size:13px;line-height:1.5;margin:8px 0 0;color:#56655c;">{{IDEAS_NOTE}}</p>
+  </td></tr>
+
+  <!-- Footer -->
+  <tr><td style="padding:20px 24px;">
+    <div style="border-top:1px solid #dce4dc;padding-top:12px;font-size:12px;color:#56655c;line-height:1.5;">
+      Next check: {{NEXT_RUN}} at 08:47 UK ({{NEXT_RUN_WHAT}}). Sent automatically by the Somasu update check (Claude). Live site: somasu.netlify.app
+    </div>
+  </td></tr>
+
+</table>
+</td></tr></table>
+</body></html>

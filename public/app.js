@@ -12,11 +12,14 @@
    On every new build: change APP_RELEASE and APP_UPDATED, the <meta name="app-version">
    tag in index.html and the CACHE name in sw.js, and add the release at the top of RELEASES.
    Plain English, one short sentence per item, what people will notice. */
-const APP_YEAR = '26', APP_RELEASE = 'R8', APP_UPDATED = '7 Nov 2026';
+const APP_YEAR = '26', APP_RELEASE = 'R9', APP_UPDATED = '8 Nov 2026';
 const VERSION = APP_YEAR + ' ' + APP_RELEASE;
 const VERSION_DATE = APP_UPDATED;
 const PRE_RELEASE = /^R0\./.test(APP_RELEASE);
 const RELEASES = [
+  { v: '26 R9', date: '8 Nov 2026',
+    everyone: ['Scan a barcode to add something to a shopping list: tap the scan button next to the add box and point your camera at the barcode. Somasu fills in the name, size and aisle for you.', 'Compare prices: open any shopping item, or a scanned product, and tap Compare prices to see what the supermarkets charge on Trolley.co.uk.', 'More colours to choose from: 19 instead of 8, including brighter red, yellow, orange, pink and sky blue. Initials always stay easy to read.'],
+    admin: ['Adding a family member now sets up their sign-in too, with a starting password you choose (or tap Make one for me). No more trips to Supabase.', 'Forgotten password? Tap the person, type a new starting password and save. Removing someone removes their sign-in as well.'] },
   { v: '26 R8', date: '7 Nov 2026',
     everyone: ['Every password box now has a Show button, so you can check what you’ve typed before you sign in or save a new password. Tap Hide to cover it again.', 'On a computer, Somasu now tells you when Caps Lock is on while you type a password.', 'A new how-to video in Help shows signing in and changing your password.'],
     admin: ['The admin guide explains how names now show in Supabase’s Users list, and how Show and the Caps Lock note help someone who can’t sign in.'] },
@@ -79,7 +82,7 @@ const RELEASES = [
 /* Guide PDFs opened by the ? Help button. If a guide is edited and its pages move,
    update the page numbers here. */
 const GUIDES = {
-  user: { file: 'guides/Somasu-User-Guide.pdf', title: 'User guide', contents: [{"t": "Welcome to Somasu", "p": 3}, {"t": "Getting started", "p": 4}, {"t": "Home", "p": 5, "topic": "home"}, {"t": "Lists", "p": 7, "topic": "lists"}, {"t": "Calendar", "p": 9, "topic": "calendar"}, {"t": "Bookings", "p": 11, "topic": "bookings"}, {"t": "Notifications", "p": 12}, {"t": "Family and settings", "p": 14, "topic": "family"}, {"t": "Questions and fixes", "p": 18}] },
+  user: { file: 'guides/Somasu-User-Guide.pdf', title: 'User guide', contents: [{"t": "Welcome to Somasu", "p": 3}, {"t": "Getting started", "p": 4}, {"t": "Home", "p": 5, "topic": "home"}, {"t": "Lists", "p": 7, "topic": "lists"}, {"t": "Calendar", "p": 10, "topic": "calendar"}, {"t": "Bookings", "p": 12, "topic": "bookings"}, {"t": "Notifications", "p": 13}, {"t": "Family and settings", "p": 15, "topic": "family"}, {"t": "Questions and fixes", "p": 19}] },
   admin: { file: 'guides/Somasu-Admin-Guide.pdf', title: 'Admin guide', contents: [{"t": "What admins do", "p": 3}, {"t": "How Somasu is put together", "p": 3}, {"t": "Setting up Somasu", "p": 5}, {"t": "Family members", "p": 7}, {"t": "Bookings and linked calendars", "p": 8}, {"t": "Notifications behind the scenes", "p": 9}, {"t": "Releasing a new version", "p": 10}, {"t": "Backups and data", "p": 10}, {"t": "Troubleshooting", "p": 11}, {"t": "Checklist", "p": 11}] }
 };
 /* Short silent how-to videos (public/guides/videos). Re-record with 07_Videos when screens change. */
@@ -89,12 +92,27 @@ const VIDEOS = [
   { id: 'booking', file: 'guides/videos/somasu-03-booking.mp4', title: 'Book the car (and what a clash looks like)', topic: 'bookings' },
   { id: 'notify', file: 'guides/videos/somasu-04-notifications.mp4', title: 'Turn on notifications', topic: 'family' },
   { id: 'linkcal', file: 'guides/videos/somasu-05-link-calendar.mp4', title: 'Link a Google, Outlook or school calendar', topic: 'family' },
-  { id: 'passwords', file: 'guides/videos/somasu-06-passwords.mp4', title: 'Sign in, and check your password with Show', topic: 'family' }
+  { id: 'passwords', file: 'guides/videos/somasu-06-passwords.mp4', title: 'Sign in, and check your password with Show', topic: 'family' },
+  { id: 'scan', file: 'guides/videos/somasu-07-scan.mp4', title: 'Scan a barcode to add it to the shopping list', topic: 'lists' }
 ];
 const CFG = window.SOMASU_CONFIG || {};
 const FAMILY_MODE = !!(CFG.supabaseUrl && CFG.supabaseKey);
 const TABLES = ['members', 'lists', 'items', 'events', 'calendars', 'facilities', 'bookings'];
-const COLOURS = ['#3B6A50', '#5361C2', '#A1554B', '#8E6519', '#2F7F86', '#8A5A9E', '#6B7A2E', '#1D3328'];
+// Colours for people and bookable things (26 R9: 8 widened to 19, with brighter choices). Initials sit in
+// white on the deeper colours and in dark ink on the bright ones (onColour), so every pairing passes the
+// 4.5:1 contrast test. Colours saved before R9 that aren't listed stay available as "Current colour".
+const COLOUR_NAMES = {
+  '#3B6A50': 'Forest', '#5361C2': 'Indigo', '#A1554B': 'Terracotta', '#2F7F86': 'Teal', '#8A5A9E': 'Plum', '#24427A': 'Navy', '#7A4A2A': 'Chestnut', '#1D3328': 'Ink',
+  '#DB2B24': 'Red', '#F5871F': 'Orange', '#F6C324': 'Yellow', '#8DC63F': 'Lime', '#22C1B0': 'Turquoise', '#42B0E8': 'Sky', '#F26AA6': 'Pink', '#B79CF2': 'Lilac',
+  '#111111': 'Black', '#1D4ED8': 'Royal blue', '#C0168F': 'Magenta' };
+const COLOURS = Object.keys(COLOUR_NAMES);
+// White or dark-ink text, whichever reads better on a colour (WCAG contrast).
+function onColour(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim()); if (!m) return '#fff';
+  const lin = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  const n = parseInt(m[1], 16), L = 0.2126 * lin(n >> 16 & 255) + 0.7152 * lin(n >> 8 & 255) + 0.0722 * lin(n & 255);
+  return 1.05 / (L + 0.05) >= (L + 0.05) / (0.0298 + 0.05) ? '#fff' : '#1D3328';
+}
 const ICS_ENDPOINT = '/api/ics';
 
 /* ------------------------------------------------------------------ helpers */
@@ -149,6 +167,7 @@ const I = {
   dots: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
   link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>',
   out: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>',
+  scan: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 8v8M10.5 8v8M14 8v8M17 8v8"/></svg>',
   dl: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>'
 };
 
@@ -266,7 +285,7 @@ let store = null, client = null;
 const memberById = id => S.members.find(m => m.id === id);
 const mName = id => (memberById(id) || {}).name || 'Someone';
 const mColour = id => (memberById(id) || {}).colour || '#5E6B64';
-const avatar = (id, cls = '') => { const m = memberById(id); return m ? `<span class="av ${cls}" style="background:${esc(m.colour)}" title="${esc(m.name)}">${esc(initials(m.name))}</span>` : ''; };
+const avatar = (id, cls = '') => { const m = memberById(id); return m ? `<span class="av ${cls}" style="background:${esc(m.colour)};color:${onColour(m.colour)}" title="${esc(m.name)}">${esc(initials(m.name))}</span>` : ''; };
 const isAdmin = () => !FAMILY_MODE || (S.me && S.me.is_admin);
 
 async function loadAll(tables = TABLES) {
@@ -315,7 +334,7 @@ function modal(title, body, onMount) {
   onMount && onMount(s);
   return s;
 }
-function closeModal() { const s = $('#scrim'); s && s.remove(); }
+function closeModal() { scanStop(); const s = $('#scrim'); s && s.remove(); }
 function confirmBox(title, text, okLabel, onOk) {
   modal(title, `<p>${esc(text)}</p><div class="actions"><button class="btn ghost grow" data-act="close">Cancel</button><button class="btn danger grow" id="okb">${esc(okLabel)}</button></div>`,
     s => { s.querySelector('#okb').onclick = async () => { closeModal(); try { await onOk(); } catch (e) { fail(e); } }; });
@@ -628,6 +647,7 @@ function viewLists() {
   <form class="addbar" data-form="add-item" autocomplete="off">
     <label class="sr" for="newItem">Add to ${esc(l.name)}</label>
     <input id="newItem" name="text" type="text" placeholder="${l.kind === 'shopping' ? 'Add an item, e.g. plantain' : 'Add a task'}" enterkeyhint="done" maxlength="120">
+    ${l.kind === 'shopping' ? `<button class="btn ghost scanbtn" type="button" data-act="scan" data-id="${l.id}" aria-label="Scan a barcode" title="Scan a barcode">${I.scan}</button>` : ''}
     <button class="btn" type="submit" aria-label="Add">${I.plus}</button>
   </form>
   ${again.length ? `<div class="suggest" aria-label="Add again">${again.map(t => `<button data-act="again" data-text="${esc(t)}">+ ${esc(t)}</button>`).join('')}</div>` : ''}
@@ -764,7 +784,13 @@ function viewMore() {
 
 /* ------------------------------------------------------------------ forms */
 const REMIND = [['', 'No reminder'], ['0', 'When it starts'], ['15', '15 minutes before'], ['30', '30 minutes before'], ['60', '1 hour before'], ['120', '2 hours before'], ['1440', '1 day before'], ['10080', '1 week before']];
-const colourPicker = (name, current) => `<div class="swatches">${COLOURS.map((c, i) => `<label style="background:${c}" title="${c}"><input type="radio" name="${name}" value="${c}" ${(current ? current === c : i === 0) ? 'checked' : ''}><span class="sr">${c}</span></label>`).join('')}</div>`;
+// current = the saved colour (kept even if it isn't in the list any more); fallback = suggestion for a new one.
+const colourPicker = (name, current, fallback) => {
+  const pick = current || fallback || COLOURS[0], list = COLOURS.includes(pick) ? COLOURS : [pick].concat(COLOURS);
+  return `<div class="swatches" role="radiogroup">${list.map(c => { const n = COLOUR_NAMES[c] || 'Current colour'; return `<label style="background:${c}" title="${n}"><input type="radio" name="${name}" value="${c}" ${c === pick ? 'checked' : ''} aria-label="${n}"><span class="sr">${n}</span></label>`; }).join('')}</div>`;
+};
+// The first colour nobody in the family is using yet, so new people stand out.
+const freeColour = () => COLOURS.find(c => !S.members.some(m => (m.colour || '').toUpperCase() === c)) || COLOURS[S.members.length % COLOURS.length];
 const memberPick = (name, chosen, multi) => `<div class="pick">${S.members.map(m => `<label><input type="${multi ? 'checkbox' : 'radio'}" name="${name}" value="${m.id}" ${chosen.includes(m.id) ? 'checked' : ''}>${avatar(m.id)}${esc(m.name)}</label>`).join('')}</div>`;
 const formVal = (f, n) => (f.elements[n] ? f.elements[n].value : '').trim();
 function showErr(form, msg) { let e = form.querySelector('.err'); if (!e) { e = document.createElement('div'); e.className = 'err'; form.prepend(e); } e.textContent = msg; e.scrollIntoView({ block: 'nearest' }); }
@@ -807,7 +833,7 @@ function itemForm(i) {
     ${l.kind === 'shopping' ? `<div class="f"><label>Aisle</label><select name="category">${CAT_ORDER.map(c => `<option ${c === (i.category || 'Other') ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></div>` : ''}
     <div class="f"><label for="itN">Note <span class="muted" style="font-weight:500">(brand, size, how many)</span></label><input id="itN" type="text" name="note" maxlength="160" value="${esc(i.note || '')}"></div>
     <div class="f"><label>List</label><select name="list_id">${S.lists.map(x => `<option value="${x.id}" ${x.id === i.list_id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div>
-    <div class="actions"><button type="button" class="btn danger" data-act="delete-item" data-id="${i.id}">Remove</button><button class="btn dark grow" type="submit">Save</button></div>
+    <div class="actions"><button type="button" class="btn danger" data-act="delete-item" data-id="${i.id}">Remove</button>${l.kind === 'shopping' ? `<a class="btn ghost" href="${esc(priceUrl(i.text))}" target="_blank" rel="noopener noreferrer">Compare prices</a>` : ''}<button class="btn dark grow" type="submit">Save</button></div>
     <p class="small muted">Added by ${esc(mName(i.added_by))} · ${ago(i.created_at)}</p></form>`);
 }
 function listForm(l) {
@@ -841,10 +867,28 @@ function memberForm(m) {
   modal(m ? 'Edit family member' : 'Add family member', `<form data-form="member" data-id="${m ? m.id : ''}" autocomplete="off">
     <div class="f"><label for="mN">Name</label><input id="mN" type="text" name="name" required maxlength="40" value="${esc(m ? m.name : '')}"></div>
     <div class="f"><label for="mE">Email</label><input id="mE" type="email" name="email" ${FAMILY_MODE ? 'required' : ''} maxlength="120" value="${esc(m ? m.email : '')}">
-      <div class="hint">${FAMILY_MODE ? 'They sign in with this address. Also invite them in Supabase (see the README).' : 'Used for sign-in once the family database is connected.'}</div></div>
-    <div class="f"><span class="lab">Colour</span>${colourPicker('colour', m && m.colour)}</div>
-    <div class="f"><label class="toggle"><input type="checkbox" name="is_admin" ${m && m.is_admin ? 'checked' : ''}> Admin (can add and change family members)</label></div>
+      <div class="hint">${FAMILY_MODE ? 'They sign in with this address.' : 'Used for sign-in once the family database is connected.'}</div></div>
+    ${FAMILY_MODE ? `<div class="f"><label for="mP">${m ? 'New starting password' : 'Starting password'}</label>${pwBox('mP', 'password', 'new-password', !m)}
+      <button type="button" class="btn sm ghost" data-act="gen-pw" style="margin-top:6px">Make one for me</button>
+      <div class="hint">${m ? 'Only if they’ve forgotten theirs: leave blank to keep their current password.' : 'Somasu sets up their sign-in with this. Give it to them in person or by text; they can change it under Family › Change password.'}</div><div class="mpcheck"></div></div>` : ''}
+    <div class="f"><span class="lab">Colour</span>${colourPicker('colour', m && m.colour, freeColour())}</div>
+    <div class="f"><label class="toggle"><input type="checkbox" name="is_admin" ${m && m.is_admin ? 'checked' : ''}> Admin (can add and change family members)</label><div class="hint">Leave this off for everyone else: they can use all of Somasu but can’t change the family list.</div></div>
     <div class="actions">${m ? `<button type="button" class="btn danger" data-act="delete-member" data-id="${m.id}">Remove</button>` : ''}<button class="btn dark grow" type="submit">Save</button></div></form>`);
+  const pw = $('#mP'), chk = document.querySelector('.mpcheck');
+  if (pw && chk) pw.addEventListener('input', () => { chk.innerHTML = pw.value ? pwChecklist(pw.value) : ''; });
+}
+// A starting password that meets the rules and is easy to read out: Word-Word-00.
+function makePassword() {
+  const W = ['Maple', 'River', 'Sunny', 'Cedar', 'Amber', 'Robin', 'Harbour', 'Meadow', 'Willow', 'Copper', 'Garden', 'Silver', 'Lantern', 'Orchard', 'Pebble', 'Thistle'];
+  const r = new Uint32Array(3); crypto.getRandomValues(r);
+  return `${W[r[0] % W.length]}-${W[r[1] % W.length].toLowerCase()}-${10 + r[2] % 90}`;
+}
+// Sign-ins are made, changed and removed on the server (the secret key never reaches the app).
+async function memberLogin(action, body) {
+  const r = await fetch('/api/member-login', { method: 'POST', headers: Object.assign({ 'content-type': 'application/json' }, await authHeader()), body: JSON.stringify(Object.assign({ action }, body)) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || 'Somasu couldn’t reach its sign-in service (error ' + r.status + ').');
+  return j;
 }
 /* ---- Link a calendar: pick the service, follow 2-3 steps, paste, done ---- */
 const CAL_PROVIDERS = [
@@ -940,6 +984,17 @@ const SAVE = {
     form.elements.text.value = '';
     await addItem(l, text);
   },
+  async 'scan-code'(form, listId) {
+    const code = formVal(form, 'code').replace(/\D/g, '');
+    if (!validBarcode(code)) return showErr(form, 'That number doesn’t look right. It’s the 8 or 13 digits under the barcode.');
+    scanStop(); await scanFound(code, listId);
+  },
+  async 'scan-add'(form, listId) {
+    const text = formVal(form, 'text'); if (!text) return showErr(form, 'Give the item a name.');
+    const l = S.lists.find(x => x.id === (form.elements.list_id ? formVal(form, 'list_id') : listId)); if (!l) return showErr(form, 'That list has gone.');
+    const added = await addItem(l, text, { category: formVal(form, 'category'), note: formVal(form, 'note') });
+    if (added !== false) { closeModal(); toast(`Added ${text} to ${l.name}`); }
+  },
   async item(form, id) {
     const text = formVal(form, 'text'); if (!text) return showErr(form, 'Give the item a name.');
     const patch = { text, note: formVal(form, 'note'), list_id: formVal(form, 'list_id') };
@@ -1008,8 +1063,28 @@ const SAVE = {
     if (email && S.members.some(m => m.id !== id && (m.email || '').toLowerCase() === email)) return showErr(form, 'Someone already has that email.');
     const row = { name, email: email || null, colour: form.querySelector('[name=colour]:checked').value, is_admin: form.elements.is_admin.checked };
     if (id && S.me && id === S.me.id && !row.is_admin && S.members.filter(m => m.is_admin).length < 2) return showErr(form, 'You’re the only admin. Make someone else an admin first.');
+    let note = 'Saved';
+    if (FAMILY_MODE) {
+      const pw = form.elements.password ? form.elements.password.value : '';
+      const old = id ? S.members.find(m => m.id === id) : null;
+      if (pw && !pwOK(pw)) return showErr(form, 'The password needs at least 10 characters, with a capital letter, a small letter and a number.');
+      const btn = form.querySelector('[type=submit]'); btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        if (!old) {
+          if (!email) throw new Error('Add their email: it’s how they sign in.');
+          const j = await memberLogin('create', { email, name, password: pw });
+          note = j.existed ? `Saved. ${name} already had a sign-in, so their password is unchanged.` : `Saved. ${name} can sign in now with their email and the starting password.`;
+        } else {
+          const was = (old.email || '').toLowerCase();
+          if (was && email && was !== email) { await memberLogin('change-email', { email: was, new_email: email }); note = 'Saved. They now sign in with ' + email + '.'; }
+          else if (!was && email && !pw) throw new Error('Add a starting password too, so Somasu can set up their sign-in.');
+          if (!was && email && pw) { const j = await memberLogin('create', { email, name, password: pw }); note = j.existed ? 'Saved. They already had a sign-in.' : 'Saved. They can sign in now.'; }
+          else if (pw) { await memberLogin('set-password', { email: email || was, password: pw }); note = 'Saved. Their new starting password is set.'; }
+        }
+      } catch (e) { btn.disabled = false; btn.textContent = 'Save'; return showErr(form, e.message); }
+    }
     if (id) await store.update('members', id, row); else await store.insert('members', row);
-    closeModal(); toast('Saved');
+    closeModal(); toast(note);
   },
   async password(form) {
     const bad = $('#scrim')._check(); if (bad) return showErr(form, bad);
@@ -1032,11 +1107,152 @@ const SAVE = {
     render();
   }
 };
-async function addItem(l, text) {
+async function addItem(l, text, extra = {}) {
   const exists = S.items.find(i => i.list_id === l.id && !i.done && !i.cleared && i.text.toLowerCase() === text.toLowerCase());
-  if (exists) return toast(`${text} is already on the list`);
-  await store.insert('items', { list_id: l.id, text, category: l.kind === 'shopping' ? guessCat(text) : null, note: '', done: false, cleared: false, added_by: S.me && S.me.id });
+  if (exists) { toast(`${text} is already on the list`); return false; }
+  await store.insert('items', { list_id: l.id, text, category: l.kind === 'shopping' ? (extra.category || guessCat(text)) : null, note: extra.note || '', done: false, cleared: false, added_by: S.me && S.me.id });
   queueItemNotify(l, text);
+  return true;
+}
+
+/* ------------------------------------------------------------------ barcode scanner (26 R9) */
+// Scan a product's barcode with the phone camera to add it to a shopping list. The number is
+// looked up in Open Food Facts (a free, open product database: name, brand, size, category; no
+// prices). Only the barcode number leaves the phone: no picture is sent or kept. Phones that can
+// read barcodes themselves (most Android phones) do; others (iPhone) use the ZXing reader, saved
+// in public/vendor and only downloaded the first time someone scans.
+const OFF_URL = 'https://world.openfoodfacts.org/api/v2/product/';
+const ZXING_SRC = 'vendor/zxing-0.21.3.min.js';
+const priceUrl = text => 'https://www.trolley.co.uk/search/?q=' + encodeURIComponent(text);
+// Open Food Facts categories to Somasu aisles, checked in order (most specific first).
+const OFF_AISLES = [
+  ['frozen', 'Frozen'],
+  ['household', 'Household'], ['cleaning', 'Household'], ['detergent', 'Household'],
+  ['cosmetic', 'Personal care'], ['hygiene', 'Personal care'], ['toothpaste', 'Personal care'], ['shampoo', 'Personal care'], ['baby-care', 'Personal care'],
+  ['meats', 'Meat & fish'], ['poultr', 'Meat & fish'], ['seafood', 'Meat & fish'], ['fishes', 'Meat & fish'], ['sausages', 'Meat & fish'], ['hams', 'Meat & fish'],
+  ['dairies', 'Dairy & eggs'], ['milks', 'Dairy & eggs'], ['cheeses', 'Dairy & eggs'], ['yogurts', 'Dairy & eggs'], ['butters', 'Dairy & eggs'], ['eggs', 'Dairy & eggs'], ['creams', 'Dairy & eggs'],
+  ['breads', 'Bakery'], ['viennoiseries', 'Bakery'], ['cakes', 'Bakery'], ['pastries', 'Bakery'],
+  ['drinks', 'Drinks'], ['beverages', 'Drinks'], ['waters', 'Drinks'], ['juices', 'Drinks'], ['sodas', 'Drinks'], ['wines', 'Drinks'], ['beers', 'Drinks'],
+  ['canned', 'Cupboard'], ['cereals', 'Cupboard'], ['pastas', 'Cupboard'], ['rices', 'Cupboard'], ['sauces', 'Cupboard'], ['condiments', 'Cupboard'], ['spreads', 'Cupboard'], ['snacks', 'Cupboard'], ['crisps', 'Cupboard'], ['biscuits', 'Cupboard'], ['confectioner', 'Cupboard'], ['spices', 'Cupboard'], ['oils', 'Cupboard'], ['flours', 'Cupboard'], ['sugars', 'Cupboard'], ['teas', 'Cupboard'], ['coffees', 'Cupboard'],
+  ['fresh-fruits', 'Fruit & veg'], ['fresh-vegetables', 'Fruit & veg'], ['fruits', 'Fruit & veg'], ['vegetables', 'Fruit & veg']
+];
+function offAisle(tags, name) {
+  // Open Food Facts lists categories from general to specific, so read them from the end. Broad
+  // groupings such as "plant-based-foods-and-beverages" say nothing about the aisle: skip them.
+  const list = (tags || []).map(t => String(t).toLowerCase().replace(/^[a-z]{2}:/, '')).filter(t => !t.includes('-and-'));
+  for (let i = list.length - 1; i >= 0; i--) for (const [k, aisle] of OFF_AISLES) if (list[i].includes(k)) return aisle;
+  return guessCat(name || '');
+}
+/** A valid EAN-8, EAN-13, UPC-A or UPC-E style number: the right length and the check digit adds up. */
+function validBarcode(code) {
+  if (!/^\d{8}$|^\d{12,14}$/.test(code)) return false;
+  const d = code.split('').map(Number), check = d.pop();
+  const sum = d.reverse().reduce((a, n, i) => a + n * (i % 2 ? 1 : 3), 0);
+  return (10 - sum % 10) % 10 === check;
+}
+/** Look a barcode up in Open Food Facts. Returns { found, name, note, category } (never throws). */
+async function lookupBarcode(code) {
+  try {
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 8000);
+    const r = await fetch(OFF_URL + code + '.json?fields=product_name,product_name_en,generic_name,brands,quantity,categories_tags', { signal: ctl.signal });
+    clearTimeout(t);
+    if (r.status === 404) return { found: false };
+    if (!r.ok) return { found: false, error: true };
+    const j = await r.json(), p = j.product || {};
+    const name = String(p.product_name_en || p.product_name || p.generic_name || '').trim().replace(/\s+/g, ' ').slice(0, 120);
+    if (j.status !== 1 || !name) return { found: false };
+    const brand = String(p.brands || '').split(',')[0].trim();
+    const note = [brand && !name.toLowerCase().includes(brand.toLowerCase().split(' ')[0]) ? brand : '', String(p.quantity || '').trim()].filter(Boolean).join(' · ').slice(0, 160);
+    return { found: true, name, note, category: offAisle(p.categories_tags, name) };
+  } catch (e) { return { found: false, error: true }; }
+}
+const SCAN = { stream: null, timer: 0, run: 0 };
+function scanStop() {
+  SCAN.run++; clearTimeout(SCAN.timer);
+  if (SCAN.stream) { SCAN.stream.getTracks().forEach(t => t.stop()); SCAN.stream = null; }
+}
+function loadScript(src) {
+  return new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => bad(new Error('Couldn’t load the barcode reader')); document.head.appendChild(s); });
+}
+/** Returns a function that reads a barcode from the video (or null if none is in view). */
+async function barcodeReader() {
+  if ('BarcodeDetector' in window) {
+    try {
+      const have = await window.BarcodeDetector.getSupportedFormats();
+      const want = ['ean_13', 'ean_8', 'upc_a', 'upc_e'].filter(f => have.includes(f));
+      if (want.length) { const d = new window.BarcodeDetector({ formats: want }); return async v => { const r = await d.detect(v); return r.length ? r[0].rawValue : null; }; }
+    } catch (e) { /* fall back to ZXing */ }
+  }
+  if (!window.ZXing) await loadScript(ZXING_SRC);
+  const Z = window.ZXing, hints = new Map();
+  hints.set(Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8, Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.UPC_E]);
+  hints.set(Z.DecodeHintType.TRY_HARDER, true);
+  const reader = new Z.MultiFormatReader(); reader.setHints(hints);
+  const c = document.createElement('canvas'), ctx = c.getContext('2d', { willReadFrequently: true });
+  return async v => {
+    const w = v.videoWidth, h = v.videoHeight; if (!w || !h) return null;
+    const k = Math.min(1, 960 / Math.max(w, h)); c.width = Math.round(w * k); c.height = Math.round(h * k);
+    ctx.drawImage(v, 0, 0, c.width, c.height);
+    try { return reader.decode(new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(c)))).getText(); }
+    catch (e) { return null; } finally { reader.reset(); }
+  };
+}
+function scanForm(listId) {
+  const s = modal('Scan a barcode', `<div class="scanbox"><video id="scanV" playsinline muted autoplay aria-label="Camera view"></video><div class="scanaim" aria-hidden="true"></div></div>
+    <p class="small muted" id="scanMsg" role="status">Starting the camera…</p>
+    <form data-form="scan-code" data-id="${listId}" autocomplete="off"><div class="f"><label for="scanCode">Or type the number under the barcode</label>
+      <div class="scanrow"><input id="scanCode" name="code" type="text" inputmode="numeric" maxlength="14" placeholder="e.g. 5000157024671"><button class="btn" type="submit">Look up</button></div></div></form>
+    <p class="small muted">Only the barcode number is looked up, in Open Food Facts. No picture leaves your phone.</p>`);
+  scanStart(s, listId);
+}
+async function scanStart(s, listId) {
+  const run = ++SCAN.run, msg = t => { const m = s.querySelector('#scanMsg'); if (m) m.textContent = t; };
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { s.querySelector('.scanbox').hidden = true; return msg('This browser can’t use the camera here. Type the number instead.'); }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+    if (run !== SCAN.run) { stream.getTracks().forEach(t => t.stop()); return; }
+    SCAN.stream = stream;
+    const v = s.querySelector('#scanV'); v.srcObject = stream; await v.play().catch(() => {});
+    msg('Point the camera at the barcode and hold it steady.');
+    const read = await barcodeReader();
+    let last = '', seen = 0;
+    const tick = async () => {
+      if (run !== SCAN.run) return;
+      let code = null; try { code = await read(v); } catch (e) { /* keep trying */ }
+      if (run !== SCAN.run) return;
+      // Only accept a number with a correct check digit, seen twice in a row, so a blurred read can't slip through.
+      if (code && validBarcode(code)) { seen = code === last ? seen + 1 : 1; last = code; if (seen >= 2) {
+        // Hold the picture for a moment with a green frame, so it's clear the barcode was read.
+        v.pause(); const aim = s.querySelector('.scanaim'); if (aim) aim.classList.add('hit'); msg('Got it: ' + code);
+        if (navigator.vibrate) navigator.vibrate(60);
+        SCAN.timer = setTimeout(() => { if (run === SCAN.run) { scanStop(); scanFound(code, listId); } }, 600);
+        return;
+      } }
+      SCAN.timer = setTimeout(tick, 200);
+    };
+    tick();
+  } catch (e) {
+    if (run !== SCAN.run) return;
+    s.querySelector('.scanbox').hidden = true;
+    msg(e && e.name === 'NotAllowedError' ? 'Camera access is off for Somasu. Allow the camera in your browser or phone settings, or type the number instead.'
+      : e && (e.name === 'NotFoundError' || e.name === 'OverconstrainedError') ? 'No camera was found. Type the number instead.'
+      : 'The camera couldn’t start. Type the number instead.');
+  }
+}
+async function scanFound(code, listId) {
+  const s = modal('Scanned', `<p class="small muted" role="status">Looking up ${esc(code)}…</p>`);
+  const p = await lookupBarcode(code);
+  if (!document.body.contains(s)) return; // closed while looking up
+  const lists = S.lists.filter(x => x.kind === 'shopping');
+  const name = p.found ? p.name : '', cat = p.found ? p.category : 'Other';
+  modal(p.found ? 'Add to list' : 'Not found', `<form data-form="scan-add" data-id="${listId}" autocomplete="off">
+    ${p.found ? '' : `<p class="small">${p.error ? 'The product database couldn’t be reached just now.' : 'This product isn’t in Open Food Facts yet.'} Type its name and it’ll still be added.</p>`}
+    <div class="f"><label for="scT">Item</label><input id="scT" type="text" name="text" required maxlength="120" value="${esc(name)}" placeholder="e.g. baked beans"></div>
+    <div class="f"><label>Aisle</label><select name="category">${CAT_ORDER.map(c => `<option ${c === cat ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></div>
+    <div class="f"><label for="scN">Note <span class="muted" style="font-weight:500">(brand, size, how many)</span></label><input id="scN" type="text" name="note" maxlength="160" value="${esc(p.found ? p.note : '')}"></div>
+    ${lists.length > 1 ? `<div class="f"><label>List</label><select name="list_id">${lists.map(x => `<option value="${x.id}" ${x.id === listId ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div>` : ''}
+    <div class="actions"><button type="button" class="btn ghost" data-act="scan" data-id="${listId}">${I.scan} Scan again</button>${p.found ? `<a class="btn ghost" href="${esc(priceUrl(name))}" target="_blank" rel="noopener noreferrer">Compare prices</a>` : ''}<button class="btn dark grow" type="submit">Add to list</button></div>
+    <p class="small muted">Barcode ${esc(code)}${p.found ? ' · details from Open Food Facts' : ''}</p></form>`);
 }
 
 /* ------------------------------------------------------------------ notifications */
@@ -1245,6 +1461,7 @@ const ACT = {
   tab(el) { S.tab = el.dataset.tab; store_set('somasu-tab', S.tab); closeModal(); render(); window.scrollTo(0, 0); },
   'open-list'(el) { S.listId = el.dataset.id; store_set('somasu-list', S.listId); S.tab = 'lists'; store_set('somasu-tab', 'lists'); render(); },
   'new-list'() { listForm(null); },
+  scan(el) { scanForm(el.dataset.id || (currentList() || {}).id); },
   'list-menu'(el) { listForm(S.lists.find(l => l.id === el.dataset.id)); },
   'delete-list'(el) {
     const l = S.lists.find(x => x.id === el.dataset.id);
@@ -1328,11 +1545,15 @@ const ACT = {
   'edit-facility'(el) { facilityForm(S.facilities.find(f => f.id === el.dataset.id)); },
   'delete-facility'(el) { const f = S.facilities.find(x => x.id === el.dataset.id); confirmBox(`Delete ${f.name}?`, 'Its bookings will be deleted too.', 'Delete', async () => { await store.remove('facilities', f.id); S.facilityId = null; toast('Deleted'); }); },
   'new-member'() { memberForm(null); },
+  'gen-pw'() { const pw = $('#mP'); if (!pw) return; pw.value = makePassword(); pw.type = 'text'; const b = pw.parentNode.querySelector('.pwshow'); if (b) setPwShown(b, true); pw.dispatchEvent(new Event('input')); },
   'edit-member'(el) { memberForm(S.members.find(m => m.id === el.dataset.id)); },
   'delete-member'(el) {
     const m = S.members.find(x => x.id === el.dataset.id);
     if (S.me && m.id === S.me.id) return toast('You can’t remove yourself.');
-    confirmBox(`Remove ${m.name}?`, FAMILY_MODE ? 'They won’t be able to open Somasu any more. Their past items and events stay.' : 'They’ll be removed from this device.', 'Remove', async () => { await store.remove('members', m.id); toast('Removed'); });
+    confirmBox(`Remove ${m.name}?`, FAMILY_MODE ? 'Their sign-in is removed too, so they won’t be able to open Somasu any more. Their past items and events stay.' : 'They’ll be removed from this device.', 'Remove', async () => {
+      if (FAMILY_MODE && m.email) { try { await memberLogin('remove', { email: m.email }); } catch (e) { return toast(e.message); } }
+      await store.remove('members', m.id); toast('Removed');
+    });
   },
   'switch-me'() {
     modal('Who’s using this device?', `<div class="actions" style="flex-direction:column;margin-top:0">${S.members.map(m => `<button class="btn ghost" data-act="set-me" data-id="${m.id}" style="justify-content:flex-start">${avatar(m.id)} ${esc(m.name)}</button>`).join('')}</div>`);
@@ -1402,6 +1623,7 @@ document.addEventListener('submit', e => {
   Promise.resolve(SAVE[f.dataset.form](f, f.dataset.id || null)).catch(err => { showErr(f, 'Couldn’t save: ' + (err.message || err)); }).finally(() => { if (btn) btn.disabled = false; });
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && SCAN.stream) closeModal(); });
 
 let deferredInstall = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredInstall = e; if (S.tab === 'more') render(); });
@@ -1424,7 +1646,7 @@ function passwordFields(form) {
 }
 // Password box with a Show / Hide button (R8). One handler for every password box in the app;
 // boxes go back to hidden when the form is sent, so password managers still recognise them.
-const pwBox = (id, name, ac) => `<div class="pwwrap"><input id="${id}" type="password" name="${name}" autocomplete="${ac}" required spellcheck="false" autocapitalize="off"><button type="button" class="pwshow" aria-controls="${id}" aria-pressed="false" aria-label="Show password">Show</button></div><p class="capsnote" role="status" hidden>Caps Lock is on</p>`;
+const pwBox = (id, name, ac, req = true) => `<div class="pwwrap"><input id="${id}" type="password" name="${name}" autocomplete="${ac}" ${req ? 'required' : ''} spellcheck="false" autocapitalize="off"><button type="button" class="pwshow" aria-controls="${id}" aria-pressed="false" aria-label="Show password">Show</button></div><p class="capsnote" role="status" hidden>Caps Lock is on</p>`;
 function setPwShown(btn, shown) {
   const inp = btn.parentNode.querySelector('input'); if (!inp) return;
   inp.type = shown ? 'text' : 'password';
@@ -1565,6 +1787,6 @@ async function boot() {
   window.addEventListener('resize', fit);
 })();
 
-window.__somasu = { S, parseICS, occurrences, guessCat, eventsBetween, normTitle, calOwners, render }; // handy for testing in the browser console
+window.__somasu = { S, parseICS, occurrences, guessCat, eventsBetween, normTitle, calOwners, render, validBarcode, offAisle, lookupBarcode }; // handy for testing in the browser console
 boot();
 })();

@@ -1,0 +1,161 @@
+{
+ "RUN_TYPE": "Update preview",
+ "RUN_DATE_LONG": "Saturday 28 November 2026",
+ "RUN_TIME": "08:49",
+ "TEST_RUN_NOTE": "",
+ "STATUS": "WARN",
+ "STATUS_ICON": "&#9888;",
+ "STATUS_TITLE": "26 R9 ready: reply APPROVE or HOLD",
+ "STATUS_LINE": "One update is tested and waiting in 06_Next-Update. It goes live on Tuesday 1 December only if you approve it.",
+ "LIVE_VERSION": "26 R8",
+ "DEPLOY_SHORT": "None",
+ "CREDITS": "0",
+ "NEXT": "WARN",
+ "NEXT_SHORT": "26 R9",
+ "NEXT_SUB": "needs your yes",
+ "DB": "OK",
+ "DB_SHORT": "Awake",
+ "DB_TIME": "0.31 s",
+ "CTA_URL": "",
+ "CTA_LABEL": "",
+ "actions": [
+  {
+   "ACTION": "Reply APPROVE or HOLD before Tuesday 1 December, 08:30."
+  }
+ ],
+ "libraries": [
+  {
+   "LIB_NAME": "supabase-js",
+   "LIB_PURPOSE": "Talks to the family database",
+   "LIB_IN_USE": "2.118.0",
+   "LIB_LATEST": "2.121.0",
+   "LIB_STATUS": "Staged",
+   "CHIP": "WARN"
+  },
+  {
+   "LIB_NAME": "web-push",
+   "LIB_PURPOSE": "Sends notifications (server)",
+   "LIB_IN_USE": "3.6.7",
+   "LIB_LATEST": "3.6.7",
+   "LIB_STATUS": "Up to date",
+   "CHIP": "OK"
+  },
+  {
+   "LIB_NAME": "Netlify Functions",
+   "LIB_PURPOSE": "Runs reminders and calendar links",
+   "LIB_IN_USE": "Node 22",
+   "LIB_LATEST": "Node 22",
+   "LIB_STATUS": "Supported",
+   "CHIP": "OK"
+  }
+ ],
+ "recs": [
+  {
+   "REC_LABEL": "Must do",
+   "REC_TEXT": "Nothing.",
+   "CHIP": "OK"
+  },
+  {
+   "REC_LABEL": "Should do",
+   "REC_TEXT": "Update supabase-js (no security issues, but it is 70 releases behind). Done and tested; staged for 1 December.",
+   "CHIP": "WARN"
+  },
+  {
+   "REC_LABEL": "Nice to have",
+   "REC_TEXT": "Nothing new.",
+   "CHIP": "INFO"
+  },
+  {
+   "REC_LABEL": "Keep an eye on",
+   "REC_TEXT": "Netlify credits: 15 per live update, 300 a month. One update a month uses about 20 including reminders.",
+   "CHIP": "INFO"
+  }
+ ],
+ "DEPLOY_TEXT": "Preview runs never deploy. Nothing went live and no credits were used.",
+ "NEXT_TEXT": "26 R9 is tested and waiting in 06_Next-Update. It goes live on Tuesday 1 December once you reply APPROVE.",
+ "staged": [
+  {
+   "STAGED_ITEM": "supabase-js 2.45.4 to 2.118.0 (index.html)",
+   "STAGED_STATE": "Tested",
+   "CHIP": "OK"
+  },
+  {
+   "STAGED_ITEM": "Version 26 R3, What's new entry, app cache name",
+   "STAGED_STATE": "Ready",
+   "CHIP": "OK"
+  }
+ ],
+ "checks": [
+  {
+   "CHECK_NAME": "Home page",
+   "CHECK_DETAIL": "0.42 s",
+   "CHECK_RESULT": "200 OK",
+   "CHIP": "OK"
+  },
+  {
+   "CHECK_NAME": "App files (6)",
+   "CHECK_DETAIL": "app, settings, offline helper, icons",
+   "CHECK_RESULT": "200 OK",
+   "CHIP": "OK"
+  },
+  {
+   "CHECK_NAME": "User and Admin guides",
+   "CHECK_DETAIL": "2 PDFs, 0.6 s",
+   "CHECK_RESULT": "200 OK",
+   "CHIP": "OK"
+  },
+  {
+   "CHECK_NAME": "Help video",
+   "CHECK_DETAIL": "somasu-01-lists, video/mp4",
+   "CHECK_RESULT": "200 OK",
+   "CHIP": "OK"
+  },
+  {
+   "CHECK_NAME": "Matches master copy",
+   "CHECK_DETAIL": "01_Site/public",
+   "CHECK_RESULT": "Yes",
+   "CHIP": "OK"
+  },
+  {
+   "CHECK_NAME": "Loads in a browser",
+   "CHECK_DETAIL": "sign-in screen, no errors",
+   "CHECK_RESULT": "Yes",
+   "CHIP": "OK"
+  },
+  {
+   "CHECK_NAME": "Calendar link service",
+   "CHECK_DETAIL": "refuses strangers and private addresses",
+   "CHECK_RESULT": "Yes",
+   "CHIP": "OK"
+  }
+ ],
+ "DB_REPLY": "ok 2026-11-28 08:49:12 UTC",
+ "DB_HTTP": "200",
+ "DB_MEANING": "The database is awake and the keep-alive is working.",
+ "PUBLIC": "OK",
+ "PUBLIC_SHORT": "Locked",
+ "PUBLIC_DETAIL": "members, lists, events and bookings all refuse anyone not signed in",
+ "SIGNUP": "OK",
+ "SIGNUP_SHORT": "Closed",
+ "SIGNUP_DETAIL": "only people you add can sign in",
+ "REMINDERS_LINE": "Runs every 5 minutes on Netlify and keeps the database awake. Its log is in your SomiahDev Netlify account (Logs &gt; Functions &gt; reminders), which Claude can't see.",
+ "NEXT_RUN": "Tuesday 1 December 2026",
+ "NEXT_RUN_WHAT": "deploys 26 R9 if you approve, then checks",
+ "APPROVAL_TITLE": "26 R9 on Tuesday 1 December",
+ "APPROVAL_TEXT": "What changes: a behind-the-scenes update to keep Somasu fast and secure (supabase-js 2.118.0 to 2.121.0). What the family will see in What&rsquo;s new: &ldquo;Behind-the-scenes update to keep Somasu fast and secure.&rdquo; All tests passed. Uses 15 of your 300 Netlify credits.",
+ "ideas": [
+  {
+   "IDEA_NO": "1",
+   "IDEA_TITLE": "Ask Somasu (AI assistant), step one",
+   "IDEA_TEXT": "Type &ldquo;add milk and eggs, swimming Saturday at 9&rdquo; and Somasu does it after you confirm.",
+   "IDEA_EFFORT": "Needs an Anthropic API key from you. About a day to build and test. No database change."
+  },
+  {
+   "IDEA_NO": "2",
+   "IDEA_TITLE": "Sunday evening summary",
+   "IDEA_TEXT": "One notification each Sunday with the week ahead: clubs, bookings and bins.",
+   "IDEA_EFFORT": "Small. Uses the existing reminders job; no extra credits."
+  }
+ ],
+ "IDEAS_NOTE": "Nothing here is built unless you say yes. Reply YES 1 (or YES 1 2) to any of these emails and it goes into the next update."
+}
