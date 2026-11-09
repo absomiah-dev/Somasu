@@ -11,11 +11,15 @@ const srv = http.createServer((q, r) => { let p = decodeURIComponent(q.url.split
   const f = path.join(tmp, p); if (!f.startsWith(tmp) || !fs.existsSync(f)) { r.writeHead(404); return r.end(); }
   r.writeHead(200, {'content-type': types[path.extname(f)] || 'application/octet-stream'}); fs.createReadStream(f).pipe(r); });
 let pass = 0, fail = 0; const ok = (n, c, x) => { c ? pass++ : fail++; console.log((c ? 'PASS ' : 'FAIL ') + n + (c ? '' : '  ' + JSON.stringify(x))); };
+const WXSEEN = [];
+function wx() { const days = ['2026-11-11', '2026-11-12', '2026-11-13'], time = [], p = [], g = []; for (const d of days) for (let h = 0; h < 24; h++) { time.push(d + 'T' + String(h).padStart(2, '0') + ':00'); p.push(d === '2026-11-12' && h >= 14 && h <= 18 ? 70 : 10); g.push(20); }
+  return {daily: {time: days, weather_code: [3, 61, 1], temperature_2m_max: [11.4, 9.2, 10], temperature_2m_min: [5.1, 4.2, 3], precipitation_probability_max: [20, 75, 10], wind_gusts_10m_max: [30, 55, 20]}, hourly: {time, precipitation_probability: p, wind_gusts_10m: g}}; }
 const CFG = { anchor: '2026-04-02', types: [{ name: 'Green bin', what: 'Recycling, food waste, garden waste', colour: '#2E8B57' }, { name: 'Grey bin', what: 'Rubbish, food waste', colour: '#5F6B66' }], out: 'Out by 6am', moves: [], until: '2027-04-01', source: 'https://westoxon.gov.uk/bins-and-recycling/waste-calendars/thu1/', remind: true };
 
 async function page(b, nowIso, cfg) {
   const ctx = await b.newContext({viewport: {width: 390, height: 844}, locale: 'en-GB', timezoneId: 'Europe/London'});
   await ctx.route('**/fonts.googleapis.com/**', r => r.abort());
+  await ctx.route('**/api.open-meteo.com/**', r => { WXSEEN.push(r.request().url()); return r.fulfill({status: 200, contentType: 'application/json', headers: {'access-control-allow-origin': '*'}, body: JSON.stringify(wx())}); });
   await ctx.addInitScript(([now, cfg]) => {
     const Real = Date, off = new Real(now) - Real.now();
     window.Date = class extends Real { constructor(...a) { super(...(a.length ? a : [Real.now() + off])); } static now() { return Real.now() + off; } };
@@ -26,7 +30,7 @@ async function page(b, nowIso, cfg) {
   await p.goto('http://localhost:' + srv.address().port + '/'); await p.waitForTimeout(1000);
   return {ctx, p, errs};
 }
-const tileText = p => p.evaluate(() => [...document.querySelectorAll('.glance .tile')].map(t => t.innerText.replace(/\s+/g, ' ').trim()));
+const tileText = p => p.evaluate(() => [...document.querySelectorAll('.dash .tile')].map(t => t.innerText.replace(/\s+/g, ' ').trim()));
 
 srv.listen(0, async () => {
   const b = await chromium.launch();
@@ -35,9 +39,22 @@ srv.listen(0, async () => {
     {
       const {p, ctx, errs} = await page(b, '2026-11-11T20:00:00Z', CFG);
       const t = await tileText(p);
-      ok('four At a glance tiles', t.length === 4, t);
-      ok('bin tile: Green bin, put it out tonight', /BIN DAY Green bin Put it out tonight/i.test(t[0]) && await p.isVisible('.tile.hot'), t[0]);
-      ok('today, shopping and car tiles', /TODAY/i.test(t[1]) && /SHOPPING .*to get/i.test(t[2]) && /FAMILY CAR/i.test(t[3]), t);
+      ok('always four tiles', t.length === 4, t);
+      ok('bin tile: Green bin, put it out tonight', /BIN DAY.*Green bin Put it out tonight/i.test(t[0]) && await p.isVisible('.tile.hot'), t[0]);
+      ok('weather, shopping and this week tiles', /WEATHER|TOMORROW/i.test(t[1]) && /WEEKLY SHOP .*to get/i.test(t[2]) && /THIS WEEK/i.test(t[3]), t);
+      ok('weather tile: tomorrow 9°, rain at the afternoon school run', /TOMORROW · WITNEY.*9° 4°.*afternoon school run/i.test(t[1]), t[1]);
+      ok('weather asks for the town only, no address', WXSEEN.length >= 1 && WXSEEN.every(u => /latitude=51\.785&longitude=-1\.485/.test(u)), WXSEEN);
+      ok('needs attention: put the green bin out tonight', /Put the green bin out tonight/.test(await p.textContent('.dash')));
+      ok('hero shows what is on now', /HAPPENING NOW|NEXT UP/i.test(await p.textContent('.dash .hero')));
+      // choose tiles: pick family car and today instead of weather and this week
+      await p.click('.dash-edit');
+      for (const k of ['weather', 'week']) await p.uncheck(`[name=t][value=${k}]`);
+      for (const k of ['car', 'today']) await p.check(`[name=t][value=${k}]`);
+      await p.click('form[data-form=tiles] [type=submit]'); await p.waitForTimeout(200);
+      const t2 = await tileText(p);
+      ok('chosen tiles shown, in list order', t2.length === 4 && /BIN DAY/i.test(t2[0]) && /WEEKLY SHOP/i.test(t2[1]) && /FAMILY CAR/i.test(t2[2]) && /TODAY/i.test(t2[3]), t2);
+      await p.click('.dash-edit'); await p.click('[data-act=tiles-reset]'); await p.waitForTimeout(200);
+      ok('back to the usual four', /WEATHER|TOMORROW/i.test((await tileText(p))[1]));
       await p.click('.tile[data-act=bins]');
       const rows = await p.evaluate(() => [...document.querySelectorAll('.sheet .row .t')].map(x => x.textContent));
       ok('bin sheet lists the next 8 weeks, alternating', rows.length === 8 && rows[0] === 'Green bin' && rows[1] === 'Grey bin' && rows[2] === 'Green bin', rows);
@@ -73,7 +90,7 @@ srv.listen(0, async () => {
     {
       const {p, ctx, errs} = await page(b, '2026-11-09T19:00:00Z', null);
       const t = await tileText(p);
-      ok('not set up: admin sees Set it up', /BIN DAY Set it up/i.test(t[0]), t);
+      ok('not set up: admin sees Set it up, still four tiles', /BIN DAY Set it up/i.test(t[0]) && t.length === 4, t);
       await p.click('.tile[data-act=edit-bins]');
       await p.fill('#bA', '2026-11-19'); await p.selectOption('select[name=first]', '1');
       await p.fill('[name=n0]', 'Green bin'); await p.fill('[name=w0]', 'Recycling, food waste, garden waste');

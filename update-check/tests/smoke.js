@@ -26,7 +26,8 @@ srv.listen(0, async () => {
     const meta = (fs.readFileSync(path.join(tmp, 'index.html'), 'utf8').match(/name="app-version" content="([^"]+)"/) || [])[1] || '';
     ok('index.html app-version meta starts with ' + VERSION, meta.startsWith(VERSION + ' ('), meta);
     const cache = (fs.readFileSync(path.join(tmp, 'sw.js'), 'utf8').match(/const CACHE = '([^']+)'/) || [])[1];
-    ok('sw.js CACHE = somasu-' + year + rel, cache === 'somasu-' + year + rel, cache);
+    // A same-release refresh (one-off, e.g. 26 R10 on 09-11-2026) adds a letter: somasu-26R10b.
+    ok('sw.js CACHE = somasu-' + year + rel, new RegExp('^somasu-' + year + rel + '[a-z]?$').test(cache || ''), cache);
     const top = (app.match(/const RELEASES = \[\s*\{ v: '([^']+)'/) || [])[1];
     ok('RELEASES top entry is ' + VERSION, top === VERSION, top);
     ok('no secret key in the build', !/sb_secret_|service_role/.test(app + fs.readFileSync(path.join(tmp, 'config.js'), 'utf8')));

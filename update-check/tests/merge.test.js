@@ -15,7 +15,7 @@ srv.listen(0, async () => {
   const b = await chromium.launch(); const errs = [];
   try {
     const p = await b.newPage({viewport: {width: 390, height: 844}, locale: 'en-GB', timezoneId: 'Europe/London'});
-    p.on('pageerror', e => errs.push(String(e))); p.on('console', m => m.type() === 'error' && errs.push(m.text()));
+    p.on('pageerror', e => errs.push(String(e))); p.on('console', m => m.type() === 'error' && !/status of 429|ERR_FAILED/.test(m.text()) && errs.push(m.text())); // the weather tile's free forecast can say 'too busy' to shared cloud machines
     await p.goto('http://localhost:' + srv.address().port + '/'); await p.waitForTimeout(1500);
     const r = await p.evaluate(() => {
       const { S, parseICS, eventsBetween, normTitle, calOwners, render } = window.__somasu;

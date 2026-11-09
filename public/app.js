@@ -18,7 +18,7 @@ const VERSION_DATE = APP_UPDATED;
 const PRE_RELEASE = /^R0\./.test(APP_RELEASE);
 const RELEASES = [
   { v: '26 R10', date: '9 Nov 2026',
-    everyone: ['At a glance on Home: bin day, what’s on today, the shopping list and whether the car (or whatever you share) is free, in four small tiles. Tap one to open it.', 'Bin day: Somasu shows which bin goes out on Home and in the calendar, and can remind you at 7pm the evening before. Turn the reminder on or off under Family › Notifications.'],
+    everyone: ['A new look for Home: what’s next in big type, four tiles with little pictures (bin day, weather, the shopping list, your week) and a Needs attention list. Tap Choose tiles to pick your own four.', 'Bin day: Somasu shows which bin goes out on Home and in the calendar, and can remind you at 7pm the evening before. Turn the reminder on or off under Family › Notifications.'],
     admin: ['Set up bin day under Family › Bin day: copy one collection date and the bins from the council’s calendar, plus any bank holiday changes. Somasu works out every week from that.'] },
   { v: '26 R9', date: '8 Nov 2026',
     everyone: ['Scan a barcode to add something to a shopping list: tap the scan button next to the add box and point your camera at the barcode. Somasu fills in the name, size and aisle for you.', 'Compare prices: open any shopping item, or a scanned product, and tap Compare prices to see what the supermarkets charge on Trolley.co.uk.', 'More colours to choose from: 19 instead of 8, including brighter red, yellow, orange, pink and sky blue. Initials always stay easy to read.'],
@@ -85,7 +85,7 @@ const RELEASES = [
 /* Guide PDFs opened by the ? Help button. If a guide is edited and its pages move,
    update the page numbers here. */
 const GUIDES = {
-  user: { file: 'guides/Somasu-User-Guide.pdf', title: 'User guide', contents: [{"t": "Welcome to Somasu", "p": 3}, {"t": "Getting started", "p": 4}, {"t": "Home", "p": 5, "topic": "home"}, {"t": "Lists", "p": 8, "topic": "lists"}, {"t": "Calendar", "p": 11, "topic": "calendar"}, {"t": "Bookings", "p": 13, "topic": "bookings"}, {"t": "Notifications", "p": 14}, {"t": "Family and settings", "p": 16, "topic": "family"}, {"t": "Questions and fixes", "p": 20}] },
+  user: { file: 'guides/Somasu-User-Guide.pdf', title: 'User guide', contents: [{"t": "Welcome to Somasu", "p": 3}, {"t": "Getting started", "p": 4}, {"t": "Home", "p": 5, "topic": "home"}, {"t": "Lists", "p": 9, "topic": "lists"}, {"t": "Calendar", "p": 12, "topic": "calendar"}, {"t": "Bookings", "p": 14, "topic": "bookings"}, {"t": "Notifications", "p": 15}, {"t": "Family and settings", "p": 17, "topic": "family"}, {"t": "Questions and fixes", "p": 21}] },
   admin: { file: 'guides/Somasu-Admin-Guide.pdf', title: 'Admin guide', contents: [{"t": "What admins do", "p": 3}, {"t": "How Somasu is put together", "p": 3}, {"t": "Setting up Somasu", "p": 5}, {"t": "Family members", "p": 7}, {"t": "Bookings, calendars and bin day", "p": 8}, {"t": "Notifications behind the scenes", "p": 9}, {"t": "Releasing a new version", "p": 11}, {"t": "Backups and data", "p": 11}, {"t": "Troubleshooting", "p": 12}, {"t": "Checklist", "p": 12}] }
 };
 /* Short silent how-to videos (public/guides/videos). Re-record with 07_Videos when screens change. */
@@ -657,7 +657,7 @@ function viewHome() {
   return `
   ${!FAMILY_MODE ? `<div class="banner"><span>👋</span><span><b>Try-out mode.</b> This is sample data and it's saved on this device only. Once the family database is connected, everything here is shared and live.</span></div>` : ''}
   <div class="page-h"><h1>${hello}${S.me ? ', ' + esc(S.me.name) : ''}</h1><div class="sub">${fmtDayLong(now)}</div></div>
-  ${glance(now, today, shop, books)}
+  ${dashboard(now, today, shop)}
   <div class="grid2">
     <section class="card"><h2><span class="dot" style="background:#D9A441"></span>Today<button class="more" data-act="tab" data-tab="calendar">Calendar</button></h2>
       ${today.length ? today.map(evRow).join('') : `<div class="empty"><b>Nothing else today</b>Enjoy the space.</div>`}
@@ -678,30 +678,130 @@ function viewHome() {
   </div>
   <p class="home-ver ver">${verHtml()}<br><a href="#" data-act="help">Help, guides and short videos</a> · <a href="#" data-act="report">Report a problem</a></p>`;
 }
-/* At a glance (26 R10): a row of small tiles at the top of Home with the things people check
-   most: bin day, what's next today, the shopping list and whether the shared things are free.
-   Each tile opens the full view. Tiles with nothing to show are left out. */
-function glance(now, today, shop, books) {
-  const tiles = [], c = binsCfg();
-  if (c) {
-    const b = nextBin(c, now);
-    if (b) {
-      const tmrw = sameDay(b.date, addDays(now, 1)), tday = sameDay(b.date, now);
-      const hint = tday ? 'Today' + (c.out ? ' · ' + c.out : '') : tmrw ? (now.getHours() >= 16 ? 'Put it out tonight' : 'Tomorrow') : fmtDayShort(b.date);
-      tiles.push(`<button class="tile${tday || tmrw ? ' hot' : ''}" data-act="bins"><span class="k">Bin day</span><span class="v"><i class="bindot" style="background:${esc(b.type.colour)}"></i>${esc(b.type.name)}</span><span class="h">${esc(hint)}${b.moved ? ' · moved' : ''}</span></button>`);
-    }
-  } else if (isAdmin()) tiles.push(`<button class="tile setup" data-act="edit-bins"><span class="k">Bin day</span><span class="v">Set it up</span><span class="h">Never miss the bins</span></button>`);
-  const timed = today.filter(e => !e.allDay), cur = timed.find(e => e.start <= now && e.end > now), next = timed.find(e => e.start > now);
-  tiles.push(`<button class="tile" data-act="tab" data-tab="calendar"><span class="k">Today</span><span class="v">${(k => k ? k + (k === 1 ? ' thing' : ' things') : 'Nothing')(today.filter(e => e.kind !== 'bin').length)} on</span><span class="h">${cur ? 'Now: ' + esc(cur.title) + ' till ' + fmtTime(cur.end) : next ? 'Next ' + fmtTime(next.start) + ' · ' + esc(next.title) : 'Nothing else today'}</span></button>`);
-  const sh = shop.filter(x => x.l.kind === 'shopping'), n = sh.reduce((a, x) => a + x.open.length, 0);
-  if (sh.length) tiles.push(`<button class="tile" data-act="open-list" data-id="${sh[0].l.id}"><span class="k">Shopping</span><span class="v">${n || 'All done'}${n ? ' to get' : ''}</span><span class="h">${n ? esc(sh.filter(x => x.open.length).map(x => x.l.name).join(', ')) : 'Nothing on the list'}</span></button>`);
-  const f = S.facilities[0];
-  if (f) {
-    const cur = S.bookings.find(b => b.facility_id === f.id && new Date(b.start_at) <= now && new Date(b.end_at) > now);
-    const nxt = S.bookings.filter(b => b.facility_id === f.id && new Date(b.start_at) > now).sort((a, b) => new Date(a.start_at) - new Date(b.start_at))[0];
-    tiles.push(`<button class="tile" data-act="tab" data-tab="bookings"><span class="k">${esc(f.name)}</span><span class="v">${cur ? esc(mName(cur.member_id)) : 'Free'}</span><span class="h">${cur ? 'Until ' + (sameDay(new Date(cur.end_at), now) ? fmtTime(new Date(cur.end_at)) : fmtDayShort(new Date(cur.end_at))) : nxt ? 'Next: ' + esc(mName(nxt.member_id)) + ', ' + relDay(new Date(nxt.start_at)).replace(/^(Today|Tomorrow)$/, m => m.toLowerCase()) + ' ' + fmtTime(new Date(nxt.start_at)) : 'Nothing booked'}</span></button>`);
+/* Home dashboard (26 R10): a dark Moringa panel at the top of Home, after the Vitro expenses
+   dashboard. "Next up" in large type, then four small tiles, each with a tiny picture (a ring, a
+   week of bars, a strip), then "Needs attention" when something does. Each person picks their
+   own four tiles (saved on this device). A tile with nothing to show gives way to the next one
+   on the list, so there are always four. */
+const TILE_KINDS = [['bins', 'Bin day'], ['weather', 'Weather'], ['shopping', 'Shopping'], ['week', 'This week'], ['car', 'First thing to book'], ['today', 'Today']];
+const TILE_DEFAULT = ['bins', 'weather', 'shopping', 'week'];
+// Weather: Open-Meteo, a free forecast service for personal use (no account or key). Only a rough
+// location is sent (the town, not the house). Cached for an hour on each device.
+const WEATHER_PLACE = { name: 'Witney', lat: 51.785, lon: -1.485 };
+const WX = { at: 0, data: null, busy: false };
+async function loadWeather() {
+  if (WX.busy) return; const cached = store_get('somasu-weather', null);
+  if (cached && Date.now() - cached.at < 3600000) { WX.data = cached.data; WX.at = cached.at; return; }
+  WX.busy = true;
+  try {
+    const u = `https://api.open-meteo.com/v1/forecast?latitude=${WEATHER_PLACE.lat}&longitude=${WEATHER_PLACE.lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_gusts_10m_max&hourly=precipitation_probability,wind_gusts_10m&timezone=Europe%2FLondon&forecast_days=3`;
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 8000);
+    const r = await fetch(u, { signal: ctl.signal }); clearTimeout(t);
+    if (r.ok) { WX.data = await r.json(); WX.at = Date.now(); store_set('somasu-weather', { at: WX.at, data: WX.data }); render(); }
+    else WX.failed = true;
+  } catch (e) { if (cached) WX.data = cached.data; else WX.failed = true; }
+  WX.busy = false; if (WX.failed) render();
+}
+const WX_ICON = c => c === 0 ? ['☀️', 'Sunny'] : c <= 2 ? ['⛅', 'Some cloud'] : c === 3 ? ['☁️', 'Cloudy'] : c <= 48 ? ['🌫️', 'Foggy'] : c <= 57 ? ['🌦️', 'Drizzle'] : c <= 67 ? ['🌧️', 'Rain'] : c <= 77 ? ['🌨️', 'Snow'] : c <= 82 ? ['🌧️', 'Showers'] : c <= 86 ? ['🌨️', 'Snow showers'] : ['⛈️', 'Thunder'];
+/** Today's (or, after 6pm, tomorrow's) weather and a one-line nudge. */
+function weatherNow(now = new Date()) {
+  const d = WX.data; if (!d || !d.daily) return null;
+  const late = now.getHours() >= 18, i = late ? 1 : 0, day = ymd(addDays(now, i));
+  const k = d.daily.time.indexOf(day); if (k < 0) return null;
+  const hrs = (d.hourly.time || []).map((t, j) => ({ t, h: +t.slice(11, 13), p: d.hourly.precipitation_probability[j], g: d.hourly.wind_gusts_10m[j] })).filter(x => x.t.slice(0, 10) === day);
+  const wet = hrs.filter(x => x.p >= 50 && x.h >= 7 && x.h <= 21), schoolRun = wet.find(x => (x.h >= 7 && x.h <= 9) || (x.h >= 15 && x.h <= 17));
+  const [icon, words] = WX_ICON(d.daily.weather_code[k]);
+  let nudge = schoolRun ? `Rain around ${schoolRun.h < 12 ? 'the morning' : 'the afternoon'} school run: take coats` : wet.length ? `Rain likely from ${pad(wet[0].h)}:00` : (d.daily.wind_gusts_10m_max[k] >= 50 ? 'Gusty: hold on to umbrellas' : 'Dry all day');
+  return { late, icon, words, hi: Math.round(d.daily.temperature_2m_max[k]), lo: Math.round(d.daily.temperature_2m_min[k]), rain: d.daily.precipitation_probability_max[k] || 0, gust: d.daily.wind_gusts_10m_max[k] || 0, nudge, hrs };
+}
+const ring = (frac, label, colour = '#F7DAA1') => { const c = 2 * Math.PI * 16, f = Math.max(0, Math.min(1, frac)); return `<svg class="ring" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="16" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="4"/><circle cx="20" cy="20" r="16" fill="none" stroke="${colour}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${(c * f).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 20 20)"/><text x="20" y="24" text-anchor="middle">${esc(label)}</text></svg>`; };
+const binIcon = col => `<svg class="binic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14l-1.3 13.2a1 1 0 0 1-1 .8H7.3a1 1 0 0 1-1-.8z" fill="${esc(col)}" stroke="rgba(255,255,255,.7)" stroke-width="1.2"/><rect x="4" y="4.2" width="16" height="2.8" rx="1" fill="${esc(col)}" stroke="rgba(255,255,255,.7)" stroke-width="1.2"/><circle cx="8.5" cy="21" r="1.4" fill="#fff"/><circle cx="15.5" cy="21" r="1.4" fill="#fff"/></svg>`;
+function tileHtml(kind, ctx) {
+  const { now, today, shop } = ctx;
+  if (kind === 'bins') {
+    const c = binsCfg();
+    if (!c) return isAdmin() ? `<button class="tile setup" data-act="edit-bins"><span class="k">Bin day</span><span class="v">Set it up</span><span class="h">Copy the council’s calendar once</span></button>` : null;
+    const b = nextBin(c, now); if (!b) return null;
+    const days = Math.round((sod(b.date) - sod(now)) / 86400000), tday = days === 0, tmrw = days === 1;
+    const hint = tday ? 'Today' + (c.out ? ' · ' + c.out : '') : tmrw ? (now.getHours() >= 16 ? 'Put it out tonight' : 'Tomorrow') : fmtDayShort(b.date);
+    return `<button class="tile${tday || tmrw ? ' hot' : ''}" data-act="bins"><span class="k">Bin day</span><span class="vis">${binIcon(b.type.colour)}${ring(1 - days / 7, days === 0 ? 'now' : days + 'd', tday || tmrw ? '#F7DAA1' : '#9FBDAA')}</span><span class="v">${esc(b.type.name)}</span><span class="h">${esc(hint)}${b.moved ? ' · moved' : ''}</span></button>`;
   }
-  return tiles.length ? `<section class="glance" aria-label="At a glance">${tiles.join('')}</section>` : '';
+  if (kind === 'weather') {
+    const w = weatherNow(now);
+    if (!w) return `<button class="tile" data-act="weather"><span class="k">Weather</span><span class="v">…</span><span class="h">${navigator.onLine === false ? 'Offline' : WX.failed ? 'Forecast unavailable just now' : 'Fetching the forecast'}</span></button>`;
+    return `<button class="tile" data-act="weather"><span class="k">${w.late ? 'Tomorrow' : 'Weather'} · ${esc(WEATHER_PLACE.name)}</span><span class="vis"><span class="wxi" role="img" aria-label="${esc(w.words)}">${w.icon}</span><span class="wxt"><b>${w.hi}°</b> ${w.lo}°</span></span><span class="rainbar" aria-label="Chance of rain ${w.rain}%"><i style="width:${w.rain}%"></i></span><span class="h">${esc(w.nudge)}</span></button>`;
+  }
+  if (kind === 'shopping') {
+    const sh = shop.filter(x => x.l.kind === 'shopping'); if (!sh.length) return null;
+    const l = sh[0].l, open = sh[0].open.length, inTrolley = S.items.filter(i => i.list_id === l.id && i.done && !i.cleared).length, all = open + inTrolley;
+    return `<button class="tile" data-act="open-list" data-id="${l.id}"><span class="k">${esc(l.name)}</span><span class="vis">${ring(all ? inTrolley / all : 1, all ? `${inTrolley}/${all}` : '✓')}</span><span class="v">${open ? open + ' to get' : 'All done'}</span><span class="h">${open ? esc(sh[0].open.slice(0, 3).map(i => i.text).join(', ')) + (open > 3 ? '…' : '') : 'Nothing on the list'}</span></button>`;
+  }
+  if (kind === 'week') {
+    const evs = eventsBetween(sod(now), addDays(sod(now), 7)).filter(e => e.kind !== 'bin');
+    const counts = [...Array(7)].map((_, i) => onDay(evs, addDays(now, i)).length), max = Math.max(3, ...counts);
+    const busiest = counts.indexOf(Math.max(...counts));
+    const bars = counts.map((n, i) => `<span class="bar${i === 0 ? ' now' : ''}" title="${n} on ${fmtDayShort(addDays(now, i))}"><i style="height:${Math.max(8, n / max * 100)}%"></i><em>${'MTWTFSS'[(addDays(now, i).getDay() + 6) % 7]}</em></span>`).join('');
+    const total = counts.reduce((a, b) => a + b, 0);
+    return `<button class="tile" data-act="tab" data-tab="calendar"><span class="k">This week</span><span class="bars" aria-hidden="true">${bars}</span><span class="v">${total} event${total === 1 ? '' : 's'}</span><span class="h">${total ? 'Busiest: ' + (busiest === 0 ? 'today' : busiest === 1 ? 'tomorrow' : fmtDayShort(addDays(now, busiest)).split(' ')[0]) : 'A quiet week'}</span></button>`;
+  }
+  if (kind === 'car') {
+    const f = S.facilities[0]; if (!f) return null;
+    const bk = S.bookings.filter(b => b.facility_id === f.id);
+    const cur = bk.find(b => new Date(b.start_at) <= now && new Date(b.end_at) > now);
+    const nxt = bk.filter(b => new Date(b.start_at) > now).sort((a, b) => new Date(a.start_at) - new Date(b.start_at))[0];
+    const d0 = at(ymd(now), pad(DAY_FROM) + ':00'), span = (DAY_TO - DAY_FROM) * 3600000;
+    const segs = bk.filter(b => new Date(b.start_at) < addDays(sod(now), 1) && new Date(b.end_at) > sod(now)).map(b => { const s = Math.max(0, (new Date(b.start_at) - d0) / span), e = Math.min(1, (new Date(b.end_at) - d0) / span); return e > s ? `<i style="left:${(s * 100).toFixed(1)}%;width:${((e - s) * 100).toFixed(1)}%;background:${esc(mColour(b.member_id))}"></i>` : ''; }).join('');
+    const nowPos = Math.max(0, Math.min(1, (now - d0) / span));
+    return `<button class="tile" data-act="tab" data-tab="bookings"><span class="k">${esc(f.name)}</span><span class="strip2" aria-hidden="true">${segs}<b style="left:${(nowPos * 100).toFixed(1)}%"></b></span><span class="v">${cur ? esc(mName(cur.member_id)) : 'Free'}</span><span class="h">${cur ? 'Until ' + (sameDay(new Date(cur.end_at), now) ? fmtTime(new Date(cur.end_at)) : fmtDayShort(new Date(cur.end_at))) : nxt ? 'Next: ' + esc(mName(nxt.member_id)) + ', ' + relDay(new Date(nxt.start_at)).replace(/^(Today|Tomorrow)$/, m => m.toLowerCase()) + ' ' + fmtTime(new Date(nxt.start_at)) : 'Nothing booked'}</span></button>`;
+  }
+  if (kind === 'today') {
+    const n = today.filter(e => e.kind !== 'bin').length, timed = today.filter(e => !e.allDay && e.kind !== 'bin');
+    const left = timed.filter(e => e.end > now).length;
+    return `<button class="tile" data-act="tab" data-tab="calendar"><span class="k">Today</span><span class="vis">${ring(timed.length ? 1 - left / timed.length : 1, n ? String(n) : '0')}</span><span class="v">${n ? n + (n === 1 ? ' thing on' : ' things on') : 'Nothing on'}</span><span class="h">${left ? left + ' still to come' : 'All done for today'}</span></button>`;
+  }
+  return null;
+}
+function myTiles() { const t = store_get('somasu-tiles', null); return Array.isArray(t) && t.length ? t.filter(k => TILE_KINDS.some(x => x[0] === k)) : TILE_DEFAULT; }
+function dashboard(now, today, shop) {
+  if (!WX.data && !WX.busy && !WX.failed) loadWeather();
+  const ctx = { now, today, shop }, order = myTiles().concat(TILE_KINDS.map(x => x[0]).filter(k => !myTiles().includes(k)));
+  const tiles = []; for (const k of order) { if (tiles.length === 4) break; const h = tileHtml(k, ctx); if (h) tiles.push(h); }
+  // Next up: what's on now, or the next timed thing in the coming day.
+  const soon = eventsBetween(addDays(now, -1), addDays(now, 2)).filter(e => e.kind !== 'bin' && !e.allDay && e.end > now).sort((a, b) => a.start - b.start);
+  const cur = soon.find(e => e.start <= now), nxt = soon.find(e => e.start > now);
+  const until = e => { const m = Math.round((e.start - now) / 60000); return m < 60 ? `in ${m} min` : sameDay(e.start, now) ? `at ${fmtTime(e.start)}` : `${relDay(e.start)} ${fmtTime(e.start)}`; };
+  const loc = e => e.kind === 'family' ? e.ev.location : (e.x && e.x.location) || '';
+  const hero = cur ? { k: 'Happening now', t: cur.title, m: `Until ${fmtTime(cur.end)}${loc(cur) ? ' · ' + loc(cur) : ''}`, e: cur } : nxt ? { k: 'Next up', t: nxt.title, m: `${until(nxt)}${loc(nxt) ? ' · ' + loc(nxt) : ''}`, e: nxt } : { k: 'Next up', t: now.getHours() >= 17 ? 'A free evening' : 'Nothing else planned', m: 'Nothing in the calendar for the next day', e: null };
+  const who = hero.e && hero.e.kind === 'family' ? avStack(hero.e.ev.who || []) : '';
+  // Needs attention: only things that need someone to do something, most urgent first.
+  const att = [], c = binsCfg(), b = c && nextBin(c, now), w = weatherNow(now);
+  if (b && sameDay(b.date, addDays(now, 1)) && now.getHours() >= 16) att.push([b.type.colour, `Put the ${b.type.name.toLowerCase()} out tonight`, (b.type.what || '') + (w && w.late && w.gust >= 50 ? ' · windy: weigh the lid down' : ''), 'bins']);
+  if (b && sameDay(b.date, now) && now.getHours() < 9) att.push([b.type.colour, `${b.type.name} goes today`, c.out || '', 'bins']);
+  const f = S.facilities[0];
+  if (f) S.bookings.filter(x => x.facility_id === f.id && x.member_id !== (S.me && S.me.id) && new Date(x.start_at) > now && new Date(x.start_at) < addDays(now, 1)).slice(0, 1).forEach(x => att.push([mColour(x.member_id), `${mName(x.member_id)} has the ${f.name.toLowerCase().replace(/^the /, '')} ${relDay(new Date(x.start_at)).toLowerCase()} ${fmtTime(new Date(x.start_at))}`, x.note || '', 'bookings']));
+  const added = S.items.filter(i => !i.done && !i.cleared && i.added_by && i.added_by !== (S.me && S.me.id) && i.created_at && sameDay(new Date(i.created_at), now));
+  if (added.length) att.push(['#9FBDAA', `${added.length} added to the shop today`, [...new Set(added.map(i => mName(i.added_by)))].join(', '), 'lists']);
+  return `<section class="dash" aria-label="Your day">
+    <div class="hero"><div><span class="k">${hero.k}</span><div class="t">${esc(hero.t)}</div><div class="m">${esc(hero.m)}</div></div>${who}</div>
+    <div class="tiles">${tiles.join('')}</div>
+    ${att.length ? `<h3>Needs attention</h3>${att.slice(0, 3).map(([col, t, m, tab]) => `<button class="att" data-act="tab" data-tab="${tab}"><span class="dot" style="background:${esc(col)}"></span><span><b>${esc(t)}</b>${m ? `<small>${esc(m)}</small>` : ''}</span></button>`).join('')}` : ''}
+    <button class="dash-edit" data-act="edit-tiles">Choose tiles</button>
+  </section>`;
+}
+function tilesForm() {
+  const mine = myTiles();
+  modal('Your tiles', `<form data-form="tiles"><p class="small muted" style="margin-top:0">Pick up to four for the top of Home, on this device. If one has nothing to show, the next one takes its place.</p>
+    ${TILE_KINDS.map(([k, n]) => `<label class="toggle" style="padding:8px 0;border-top:1px solid var(--line)"><input type="checkbox" name="t" value="${k}" ${mine.includes(k) ? 'checked' : ''}><span>${k === 'car' && S.facilities[0] ? esc(S.facilities[0].name) : n}</span></label>`).join('')}
+    <div class="actions"><button type="button" class="btn ghost" data-act="tiles-reset">Back to the usual four</button><button class="btn dark grow" type="submit">Save</button></div></form>`);
+}
+function weatherSheet() {
+  const w = weatherNow(new Date()); if (!w) return toast('The forecast isn’t available just now');
+  const hrs = w.hrs.filter(x => x.h >= 7 && x.h <= 21 && x.h % 2 === 1);
+  modal(`${w.late ? 'Tomorrow' : 'Today'} in ${WEATHER_PLACE.name}`, `<div class="wxbig"><span>${w.icon}</span><b>${w.hi}°</b> <span class="muted">${w.lo}°</span></div>
+    <p>${esc(w.words)}. ${esc(w.nudge)}. Gusts up to ${Math.round(w.gust * 0.621)} mph.</p>
+    <div class="wxhours">${hrs.map(x => `<span><i style="height:${Math.max(4, x.p)}%"></i><em>${x.h}</em></span>`).join('')}</div>
+    <p class="small muted">Bars show the chance of rain each hour. Forecast from Open-Meteo, updated hourly.</p>
+    <div class="actions"><button class="btn dark grow" data-act="close">Done</button></div>`);
 }
 function evRow(e, showDay) {
   if (e.kind === 'bin') return `<div class="row" data-act="bins" style="cursor:pointer"><span class="evbar" style="background:${esc(e.colour)}"></span>
@@ -1158,6 +1258,11 @@ const SAVE = {
     const row = { name, note: formVal(form, 'note'), colour: form.querySelector('[name=colour]:checked').value };
     if (id) await store.update('facilities', id, row); else { const r = await store.insert('facilities', row); S.facilityId = r.id; }
     closeModal(); toast('Saved');
+  },
+  tiles(form) {
+    const picked = [...form.querySelectorAll('[name=t]:checked')].map(x => x.value);
+    if (picked.length > 4) return showErr(form, 'Pick up to four.');
+    store_set('somasu-tiles', picked.length ? picked : TILE_DEFAULT); closeModal(); render(); toast('Saved');
   },
   async bins(form) {
     const anchor = formVal(form, 'anchor'); if (!/^\d{4}-\d{2}-\d{2}$/.test(anchor)) return showErr(form, 'Add one collection date from the council’s calendar.');
@@ -1719,6 +1824,9 @@ const ACT = {
   help() { showHelp(); },
   report() { reportProblem(); },
   bins() { binSheet(); },
+  weather() { weatherSheet(); },
+  'edit-tiles'() { tilesForm(); },
+  'tiles-reset'() { store_set('somasu-tiles', TILE_DEFAULT); closeModal(); render(); toast('Back to the usual four'); },
   'edit-bins'() { if (isAdmin()) binsForm(); },
   async 'clear-bins'() {
     if (!confirm('Turn off bin day? Somasu stops showing bins and sending bin reminders. You can set it up again any time.')) return;
