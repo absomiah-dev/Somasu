@@ -12,11 +12,14 @@
    On every new build: change APP_RELEASE and APP_UPDATED, the <meta name="app-version">
    tag in index.html and the CACHE name in sw.js, and add the release at the top of RELEASES.
    Plain English, one short sentence per item, what people will notice. */
-const APP_YEAR = '26', APP_RELEASE = 'R9', APP_UPDATED = '8 Nov 2026';
+const APP_YEAR = '26', APP_RELEASE = 'R10', APP_UPDATED = '9 Nov 2026';
 const VERSION = APP_YEAR + ' ' + APP_RELEASE;
 const VERSION_DATE = APP_UPDATED;
 const PRE_RELEASE = /^R0\./.test(APP_RELEASE);
 const RELEASES = [
+  { v: '26 R10', date: '9 Nov 2026',
+    everyone: ['At a glance on Home: bin day, what’s on today, the shopping list and whether the car (or whatever you share) is free, in four small tiles. Tap one to open it.', 'Bin day: Somasu shows which bin goes out on Home and in the calendar, and can remind you at 7pm the evening before. Turn the reminder on or off under Family › Notifications.'],
+    admin: ['Set up bin day under Family › Bin day: copy one collection date and the bins from the council’s calendar, plus any bank holiday changes. Somasu works out every week from that.'] },
   { v: '26 R9', date: '8 Nov 2026',
     everyone: ['Scan a barcode to add something to a shopping list: tap the scan button next to the add box and point your camera at the barcode. Somasu fills in the name, size and aisle for you.', 'Compare prices: open any shopping item, or a scanned product, and tap Compare prices to see what the supermarkets charge on Trolley.co.uk.', 'More colours to choose from: 19 instead of 8, including brighter red, yellow, orange, pink and sky blue. Initials always stay easy to read.'],
     admin: ['Adding a family member now sets up their sign-in too, with a starting password you choose (or tap Make one for me). No more trips to Supabase.', 'Forgotten password? Tap the person, type a new starting password and save. Removing someone removes their sign-in as well.'] },
@@ -82,8 +85,8 @@ const RELEASES = [
 /* Guide PDFs opened by the ? Help button. If a guide is edited and its pages move,
    update the page numbers here. */
 const GUIDES = {
-  user: { file: 'guides/Somasu-User-Guide.pdf', title: 'User guide', contents: [{"t": "Welcome to Somasu", "p": 3}, {"t": "Getting started", "p": 4}, {"t": "Home", "p": 5, "topic": "home"}, {"t": "Lists", "p": 7, "topic": "lists"}, {"t": "Calendar", "p": 10, "topic": "calendar"}, {"t": "Bookings", "p": 12, "topic": "bookings"}, {"t": "Notifications", "p": 13}, {"t": "Family and settings", "p": 15, "topic": "family"}, {"t": "Questions and fixes", "p": 19}] },
-  admin: { file: 'guides/Somasu-Admin-Guide.pdf', title: 'Admin guide', contents: [{"t": "What admins do", "p": 3}, {"t": "How Somasu is put together", "p": 3}, {"t": "Setting up Somasu", "p": 5}, {"t": "Family members", "p": 7}, {"t": "Bookings and linked calendars", "p": 8}, {"t": "Notifications behind the scenes", "p": 9}, {"t": "Releasing a new version", "p": 10}, {"t": "Backups and data", "p": 10}, {"t": "Troubleshooting", "p": 11}, {"t": "Checklist", "p": 11}] }
+  user: { file: 'guides/Somasu-User-Guide.pdf', title: 'User guide', contents: [{"t": "Welcome to Somasu", "p": 3}, {"t": "Getting started", "p": 4}, {"t": "Home", "p": 5, "topic": "home"}, {"t": "Lists", "p": 8, "topic": "lists"}, {"t": "Calendar", "p": 11, "topic": "calendar"}, {"t": "Bookings", "p": 13, "topic": "bookings"}, {"t": "Notifications", "p": 14}, {"t": "Family and settings", "p": 16, "topic": "family"}, {"t": "Questions and fixes", "p": 20}] },
+  admin: { file: 'guides/Somasu-Admin-Guide.pdf', title: 'Admin guide', contents: [{"t": "What admins do", "p": 3}, {"t": "How Somasu is put together", "p": 3}, {"t": "Setting up Somasu", "p": 5}, {"t": "Family members", "p": 7}, {"t": "Bookings, calendars and bin day", "p": 8}, {"t": "Notifications behind the scenes", "p": 9}, {"t": "Releasing a new version", "p": 11}, {"t": "Backups and data", "p": 11}, {"t": "Troubleshooting", "p": 12}, {"t": "Checklist", "p": 12}] }
 };
 /* Short silent how-to videos (public/guides/videos). Re-record with 07_Videos when screens change. */
 const VIDEOS = [
@@ -219,7 +222,6 @@ function sampleData() {
     events: [
       { id: uid(), title: 'Family dinner', all_day: false, start_at: iso(0, '18:30'), end_at: iso(0, '20:00'), who: [], location: 'Home', notes: '', repeat: 'none', repeat_until: null, created_by: me },
       { id: uid(), title: 'Swimming', all_day: false, start_at: iso(2, '17:00'), end_at: iso(2, '18:00'), who: [am], location: 'Windrush Leisure Centre', notes: '', repeat: 'weekly', repeat_until: null, remind_minutes: 30, created_by: am },
-      { id: uid(), title: 'Bin day', all_day: true, start_at: at(ymd(nextThu), '00:00').toISOString(), end_at: at(ymd(addDays(nextThu, 1)), '00:00').toISOString(), who: [], location: '', notes: 'Green bin one week, black the next', repeat: 'weekly', repeat_until: null, created_by: me },
       { id: uid(), title: 'Client call', all_day: false, start_at: iso(1, '10:00'), end_at: iso(1, '11:00'), who: [me], location: '', notes: '', repeat: 'none', repeat_until: null, created_by: me }
     ],
     calendars: [],
@@ -310,7 +312,11 @@ async function loadSettings() {
       const { data, error } = await client.from('app_settings').select('key,value');
       if (error) throw error;
       S.settings = Object.fromEntries((data || []).map(r => [r.key, r.value]));
-    } else S.settings = store_get('somasu-settings', {});
+    } else {
+      S.settings = store_get('somasu-settings', {});
+      // Try-out mode: a sample bin rule (green one week, grey the next) so the bin features show.
+      if (!('bins' in S.settings)) { const t = sod(new Date()), thu = addDays(t, (4 - t.getDay() + 7) % 7); S.settings.bins = JSON.stringify(Object.assign({}, BIN_SAMPLE, { anchor: ymd(thu) })); }
+    }
   } catch (e) { console.warn('Family settings not loaded, using defaults:', e.message || e); S.settings = {}; }
 }
 
@@ -500,7 +506,9 @@ function eventsBetween(from, to) {
     if (cal.visible === false || S.hidden.has('c:' + cal.id)) continue;
     for (const x of (S.external[cal.id] || [])) occurrences(x, from, to).forEach(oc => out.push({ kind: 'linked', cal, x, start: oc.start, end: oc.end, title: x.title, allDay: x.allDay, colour: cal.colour || '#5361C2' }));
   }
-  return mergeDuplicates(out).sort((a, b) => (b.allDay - a.allDay) || (a.start - b.start));
+  const merged = mergeDuplicates(out);
+  if (!S.hidden.has('bins')) for (const x of binCollections(binsCfg(), from, to)) merged.push({ kind: 'bin', bin: x, start: x.date, end: addDays(x.date, 1), title: binTitle(x.type), allDay: true, colour: x.type.colour || '#5F6B66', cals: [] });
+  return merged.sort((a, b) => (b.allDay - a.allDay) || (a.start - b.start));
 }
 /* The same event in several linked calendars (a shared invite, the school calendar linked by two
    people) shows once, with the faces of everyone whose calendar it's in. A match is the same event
@@ -534,6 +542,76 @@ function avStack(ids) {
 }
 const calLabel = c => (memberById(c.created_by) ? mName(c.created_by) + ' · ' : '') + c.name;
 function onDay(list, d) { const a = sod(d), b = addDays(a, 1); return list.filter(e => e.start < b && e.end > a); }
+
+/* ------------------------------------------------------------------ bin collections (26 R10) */
+// Bin day is stored as a rule, not a list of dates: the council collects on the same weekday,
+// cycling through the bin types (green one week, grey the next), starting from one known
+// collection (anchor). Bank holiday moves are listed as exceptions. The rule lives in the family
+// settings (app_settings, key "bins", as JSON), so admins can change it in the app; Somasu never
+// fetches the council website itself (it blocks automatic visitors). The update check reads the
+// council's new calendar each March and emails Andy anything that needs changing.
+const BIN_COLOURS = { '#2E8B57': 'Green', '#5F6B66': 'Grey', '#1F2A24': 'Black', '#2563EB': 'Blue', '#8B5A2B': 'Brown', '#7C3AED': 'Purple', '#DB2B24': 'Red' };
+const BIN_SAMPLE = { anchor: '', types: [{ name: 'Green bin', what: 'Recycling, food waste, garden waste', colour: '#2E8B57' }, { name: 'Grey bin', what: 'Rubbish, food waste', colour: '#5F6B66' }], out: 'Out by 6am', moves: [], until: '', source: '', remind: true };
+function binsCfg() {
+  let c = (S.settings || {}).bins; if (!c) return null;
+  try { c = typeof c === 'string' ? JSON.parse(c) : c; } catch (e) { return null; }
+  if (!c || !/^\d{4}-\d{2}-\d{2}$/.test(c.anchor || '') || !Array.isArray(c.types) || !c.types.length) return null;
+  return c;
+}
+/** Collections between two dates: [{ date, type, moved }], in date order. */
+function binCollections(c, from, to) {
+  if (!c) return [];
+  const n = c.types.length, a = parseYmd(c.anchor), out = [];
+  const moves = new Map((c.moves || []).filter(m => m && m.from).map(m => [m.from, m.to || '']));
+  // Start a fortnight early so a collection moved forward into the range isn't missed.
+  let k = Math.floor((sod(from) - a) / (7 * 86400000)) - 2;
+  for (;; k++) {
+    const d = addDays(a, k * 7); if (d > addDays(to, 14)) break;
+    const type = c.types[((k % n) + n) % n], key = ymd(d);
+    let date = d, moved = false;
+    if (moves.has(key)) { const t = moves.get(key); if (!t) continue; date = parseYmd(t); moved = true; }
+    if (date >= sod(from) && date < to) out.push({ date, type, moved });
+  }
+  return out.sort((x, y) => x.date - y.date);
+}
+/** The next collection still to come (today's counts until midday). */
+function nextBin(c, now = new Date()) {
+  const list = binCollections(c, sod(now), addDays(sod(now), 40));
+  return list.find(x => !(sameDay(x.date, now) && now.getHours() >= 12)) || null;
+}
+const binTitle = t => t.name + (t.what ? ': ' + t.what.charAt(0).toLowerCase() + t.what.slice(1) : '');
+function binSheet() {
+  const c = binsCfg();
+  if (!c) return modal('Bin day', `<p>Bin day isn’t set up yet.</p>${isAdmin() ? `<div class="actions"><button class="btn dark grow" data-act="edit-bins">Set up bin day</button></div>` : '<p class="small muted">Ask an admin to set it up under Family.</p>'}`);
+  const list = binCollections(c, sod(new Date()), addDays(sod(new Date()), 56));
+  modal('Bin day', `${list.map(x => `<div class="row"><span class="evbar" style="background:${esc(x.type.colour)}"></span><div class="main"><div class="t">${esc(x.type.name)}${x.moved ? ' <span class="small" style="color:var(--danger)">· moved</span>' : ''}</div><div class="m">${relDay(x.date)}${c.out ? ' · ' + esc(c.out) : ''}<br>${esc(x.type.what || '')}</div></div></div>`).join('')}
+    ${c.until && parseYmd(c.until) < addDays(new Date(), 30) ? `<p class="small" style="color:var(--danger)">The council’s calendar runs to ${fmtDayShort(parseYmd(c.until))}. Check their new one for changed dates.</p>` : ''}
+    <div class="actions">${c.source ? `<a class="btn ghost" href="${esc(c.source)}" target="_blank" rel="noopener noreferrer">Council calendar</a>` : ''}${isAdmin() ? `<button class="btn ghost" data-act="edit-bins">Change</button>` : ''}<button class="btn dark grow" data-act="close">Done</button></div>`);
+}
+const dmy = s => { const m = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/.exec(String(s).trim()); if (!m) return null; const d = new Date(+m[3], m[2] - 1, +m[1]); return d.getMonth() === m[2] - 1 ? ymd(d) : null; };
+const ymdToDmy = s => s ? s.split('-').reverse().join('-') : '';
+function binsForm() {
+  const c = binsCfg() || Object.assign({}, BIN_SAMPLE, { anchor: '' }), t = c.types.concat([{}, {}]).slice(0, 2);
+  const colourSel = (name, cur) => `<select name="${name}">${Object.entries(BIN_COLOURS).map(([h, n]) => `<option value="${h}" ${h === cur ? 'selected' : ''}>${n}</option>`).join('')}</select>`;
+  modal('Bin day', `<form data-form="bins" autocomplete="off">
+    <p class="small muted" style="margin-top:0">Copy these from the council’s collection calendar. Somasu works out every week from them.</p>
+    <div class="f"><label for="bA">One collection date, and which week’s bin it was</label><div class="row2"><input id="bA" type="date" name="anchor" required value="${esc(c.anchor)}"><select name="first"><option value="0">Week 1</option><option value="1">Week 2</option></select></div></div>
+    <fieldset class="f"><legend>Week 1</legend><div class="row2"><input type="text" name="n0" maxlength="30" required value="${esc(t[0].name || '')}" placeholder="e.g. Green bin" aria-label="Week 1 bin">${colourSel('c0', t[0].colour || '#2E8B57')}</div><input type="text" name="w0" maxlength="80" value="${esc(t[0].what || '')}" placeholder="What goes out, e.g. Recycling, food waste" aria-label="Week 1: what goes out"></fieldset>
+    <fieldset class="f"><legend>Week 2 <span class="muted" style="font-weight:500">(leave empty if it’s the same every week)</span></legend><div class="row2"><input type="text" name="n1" maxlength="30" value="${esc(t[1].name || '')}" placeholder="e.g. Grey bin" aria-label="Week 2 bin">${colourSel('c1', t[1].colour || '#5F6B66')}</div><input type="text" name="w1" maxlength="80" value="${esc(t[1].what || '')}" placeholder="What goes out, e.g. Rubbish, food waste" aria-label="Week 2: what goes out"></fieldset>
+    <div class="f"><label for="bO">When to put it out</label><input type="text" id="bO" name="out" maxlength="40" value="${esc(c.out || '')}" placeholder="e.g. Out by 6am"></div>
+    <div class="f"><label for="bM">Changed dates <span class="muted" style="font-weight:500">(bank holidays: one per line, “usual date &gt; new date”, or “&gt; none”)</span></label><textarea id="bM" name="moves" rows="3" placeholder="24-12-2026 > 27-12-2026">${esc((c.moves || []).map(m => ymdToDmy(m.from) + ' > ' + (m.to ? ymdToDmy(m.to) : 'none')).join('\n'))}</textarea></div>
+    <div class="f"><label for="bU">Council calendar runs until <span class="muted" style="font-weight:500">(optional)</span></label><input id="bU" type="date" name="until" value="${esc(c.until || '')}"></div>
+    <div class="f"><label for="bS">Link to the council’s calendar <span class="muted" style="font-weight:500">(optional)</span></label><input id="bS" type="url" name="source" value="${esc(c.source || '')}" placeholder="https://"></div>
+    <label class="toggle"><input type="checkbox" name="remind" ${c.remind !== false ? 'checked' : ''}><span>Remind everyone the evening before<br><span class="small muted" style="font-weight:500">7pm, to phones with Bin day notifications on</span></span></label>
+    <div class="actions">${binsCfg() ? `<button type="button" class="btn danger" data-act="clear-bins">Turn off</button>` : ''}<button type="button" class="btn ghost" data-act="close">Cancel</button><button type="submit" class="btn dark grow">Save</button></div></form>`);
+}
+async function saveSetting(key, value) {
+  if (FAMILY_MODE) {
+    const { error } = await client.from('app_settings').upsert({ key, value, updated_by: S.me && S.me.id, updated_at: new Date().toISOString() });
+    if (error) throw new Error(/app_settings|relation|schema cache|does not exist/i.test(error.message) ? 'The family database needs a small update first: run database script v5 in Supabase (Admin guide).' : 'Couldn’t save: ' + error.message);
+  } else store_set('somasu-settings', Object.assign({}, store_get('somasu-settings', {}), { [key]: value }));
+  S.settings = Object.assign({}, S.settings, { [key]: value });
+}
 
 /* ------------------------------------------------------------------ rendering */
 const TABS = [['home', 'Home', I.home], ['lists', 'Lists', I.cart], ['calendar', 'Calendar', I.cal], ['bookings', 'Bookings', I.key], ['more', 'Family', I.more]];
@@ -579,6 +657,7 @@ function viewHome() {
   return `
   ${!FAMILY_MODE ? `<div class="banner"><span>👋</span><span><b>Try-out mode.</b> This is sample data and it's saved on this device only. Once the family database is connected, everything here is shared and live.</span></div>` : ''}
   <div class="page-h"><h1>${hello}${S.me ? ', ' + esc(S.me.name) : ''}</h1><div class="sub">${fmtDayLong(now)}</div></div>
+  ${glance(now, today, shop, books)}
   <div class="grid2">
     <section class="card"><h2><span class="dot" style="background:#D9A441"></span>Today<button class="more" data-act="tab" data-tab="calendar">Calendar</button></h2>
       ${today.length ? today.map(evRow).join('') : `<div class="empty"><b>Nothing else today</b>Enjoy the space.</div>`}
@@ -599,7 +678,34 @@ function viewHome() {
   </div>
   <p class="home-ver ver">${verHtml()}<br><a href="#" data-act="help">Help, guides and short videos</a> · <a href="#" data-act="report">Report a problem</a></p>`;
 }
+/* At a glance (26 R10): a row of small tiles at the top of Home with the things people check
+   most: bin day, what's next today, the shopping list and whether the shared things are free.
+   Each tile opens the full view. Tiles with nothing to show are left out. */
+function glance(now, today, shop, books) {
+  const tiles = [], c = binsCfg();
+  if (c) {
+    const b = nextBin(c, now);
+    if (b) {
+      const tmrw = sameDay(b.date, addDays(now, 1)), tday = sameDay(b.date, now);
+      const hint = tday ? 'Today' + (c.out ? ' · ' + c.out : '') : tmrw ? (now.getHours() >= 16 ? 'Put it out tonight' : 'Tomorrow') : fmtDayShort(b.date);
+      tiles.push(`<button class="tile${tday || tmrw ? ' hot' : ''}" data-act="bins"><span class="k">Bin day</span><span class="v"><i class="bindot" style="background:${esc(b.type.colour)}"></i>${esc(b.type.name)}</span><span class="h">${esc(hint)}${b.moved ? ' · moved' : ''}</span></button>`);
+    }
+  } else if (isAdmin()) tiles.push(`<button class="tile setup" data-act="edit-bins"><span class="k">Bin day</span><span class="v">Set it up</span><span class="h">Never miss the bins</span></button>`);
+  const timed = today.filter(e => !e.allDay), cur = timed.find(e => e.start <= now && e.end > now), next = timed.find(e => e.start > now);
+  tiles.push(`<button class="tile" data-act="tab" data-tab="calendar"><span class="k">Today</span><span class="v">${(k => k ? k + (k === 1 ? ' thing' : ' things') : 'Nothing')(today.filter(e => e.kind !== 'bin').length)} on</span><span class="h">${cur ? 'Now: ' + esc(cur.title) + ' till ' + fmtTime(cur.end) : next ? 'Next ' + fmtTime(next.start) + ' · ' + esc(next.title) : 'Nothing else today'}</span></button>`);
+  const sh = shop.filter(x => x.l.kind === 'shopping'), n = sh.reduce((a, x) => a + x.open.length, 0);
+  if (sh.length) tiles.push(`<button class="tile" data-act="open-list" data-id="${sh[0].l.id}"><span class="k">Shopping</span><span class="v">${n || 'All done'}${n ? ' to get' : ''}</span><span class="h">${n ? esc(sh.filter(x => x.open.length).map(x => x.l.name).join(', ')) : 'Nothing on the list'}</span></button>`);
+  const f = S.facilities[0];
+  if (f) {
+    const cur = S.bookings.find(b => b.facility_id === f.id && new Date(b.start_at) <= now && new Date(b.end_at) > now);
+    const nxt = S.bookings.filter(b => b.facility_id === f.id && new Date(b.start_at) > now).sort((a, b) => new Date(a.start_at) - new Date(b.start_at))[0];
+    tiles.push(`<button class="tile" data-act="tab" data-tab="bookings"><span class="k">${esc(f.name)}</span><span class="v">${cur ? esc(mName(cur.member_id)) : 'Free'}</span><span class="h">${cur ? 'Until ' + (sameDay(new Date(cur.end_at), now) ? fmtTime(new Date(cur.end_at)) : fmtDayShort(new Date(cur.end_at))) : nxt ? 'Next: ' + esc(mName(nxt.member_id)) + ', ' + relDay(new Date(nxt.start_at)).replace(/^(Today|Tomorrow)$/, m => m.toLowerCase()) + ' ' + fmtTime(new Date(nxt.start_at)) : 'Nothing booked'}</span></button>`);
+  }
+  return tiles.length ? `<section class="glance" aria-label="At a glance">${tiles.join('')}</section>` : '';
+}
 function evRow(e, showDay) {
+  if (e.kind === 'bin') return `<div class="row" data-act="bins" style="cursor:pointer"><span class="evbar" style="background:${esc(e.colour)}"></span>
+    <div class="main"><div class="t">${esc(e.bin.type.name)}</div><div class="m">${showDay ? relDay(e.start) + ' · ' : ''}${esc(e.bin.type.what || 'Bin day')}${e.bin.moved ? ' · moved' : ''}</div></div><span class="small muted">Bins</span></div>`;
   const time = e.allDay ? 'All day' : fmtTime(e.start);
   const who = e.kind === 'family' ? ((e.ev.who || []).length ? avStack(e.ev.who.concat(calOwners(e))) : '<span class="small muted">Everyone</span>')
     : e.cals.length > 1 ? (avStack(calOwners(e)) || `<span class="ev-src small muted">${e.cals.length} calendars</span>`) : `<span class="ev-src small muted">${esc(e.cal.name)}</span>`;
@@ -670,7 +776,8 @@ function viewCalendar() {
   const today = sod(new Date());
   const filters = [`<button class="chip ${S.hidden.has('m:everyone') ? 'off' : ''}" data-act="filter" data-key="m:everyone"><span class="sw" style="background:#D9A441"></span>Everyone</button>`]
     .concat(S.members.map(x => `<button class="chip ${S.hidden.has('m:' + x.id) ? 'off' : ''}" data-act="filter" data-key="m:${x.id}"><span class="sw" style="background:${esc(x.colour)}"></span>${esc(x.name)}</button>`))
-    .concat(S.calendars.filter(c => c.visible !== false).map(c => `<button class="chip ${S.hidden.has('c:' + c.id) ? 'off' : ''}" data-act="filter" data-key="c:${c.id}" title="Linked calendar"><span class="sw" style="background:${esc(c.colour)};border-radius:3px"></span>${esc(c.name)}${S.extStatus[c.id] === 'error' ? ' ⚠' : ''}</button>`)).join('');
+    .concat(S.calendars.filter(c => c.visible !== false).map(c => `<button class="chip ${S.hidden.has('c:' + c.id) ? 'off' : ''}" data-act="filter" data-key="c:${c.id}" title="Linked calendar"><span class="sw" style="background:${esc(c.colour)};border-radius:3px"></span>${esc(c.name)}${S.extStatus[c.id] === 'error' ? ' ⚠' : ''}</button>`))
+    .concat(binsCfg() ? [`<button class="chip ${S.hidden.has('bins') ? 'off' : ''}" data-act="filter" data-key="bins"><span class="sw" style="background:${esc(binsCfg().types[0].colour)}"></span>Bins</button>`] : []).join('');
   const head = `<div class="cal-h"><h1>${S.calView === 'month' ? first.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) : 'Agenda'}</h1>
     ${S.calView === 'month' ? `<button class="icon-btn" data-act="cal-prev" aria-label="Previous month">${I.left}</button><button class="btn sm ghost" data-act="cal-today">Today</button><button class="icon-btn" data-act="cal-next" aria-label="Next month">${I.right}</button>` : ''}
     <div class="seg" role="tablist"><button class="${S.calView === 'month' ? 'on' : ''}" data-act="cal-view" data-v="month">Month</button><button class="${S.calView === 'agenda' ? 'on' : ''}" data-act="cal-view" data-v="agenda">Agenda</button></div></div>
@@ -699,6 +806,8 @@ function viewCalendar() {
   </div>`;
 }
 function evCard(e) {
+  if (e.kind === 'bin') return `<button class="ev" data-act="bins"><span class="evbar" style="background:${esc(e.colour)}"></span><span class="when">All day</span>
+    <span class="main"><span class="t">${esc(e.bin.type.name)}</span><span class="src">Bins</span><br><span class="m">${esc(e.bin.type.what || '')}${e.bin.moved ? ' · moved' : ''}</span></span></button>`;
   const fam = e.kind === 'family';
   const who = fam ? ((e.ev.who || []).length ? [...new Set(e.ev.who.concat(calOwners(e)))].map(mName).join(', ') : 'Everyone')
     : e.cals.length > 1 ? [...new Set(calOwners(e))].map(mName).join(', ') : '';
@@ -765,6 +874,9 @@ function viewMore() {
     <h2>Things to book</h2>
     <div class="card">${S.facilities.length ? S.facilities.map(f => `<div class="row" data-act="edit-facility" data-id="${f.id}" style="cursor:pointer"><span class="evbar" style="background:${esc(f.colour)}"></span><div class="main"><div class="t">${esc(f.name)}</div><div class="m">${esc(f.note || '')}</div></div></div>`).join('') : '<p class="small muted" style="margin-top:0">Nothing yet.</p>'}
       <div class="actions"><button class="btn sm" data-act="new-facility">${I.plus} Add something to book</button></div></div>
+    <h2>Bin day</h2>
+    <div class="card">${binsCfg() ? (b => `<div class="row" data-act="bins" style="cursor:pointer">${b ? `<span class="evbar" style="background:${esc(b.type.colour)}"></span><div class="main"><div class="t">Next: ${esc(b.type.name)}</div><div class="m">${relDay(b.date)} · ${esc(b.type.what || '')}</div></div>` : '<div class="main"><div class="t">No collections in the next few weeks</div></div>'}</div>`)(nextBin(binsCfg())) : '<p class="small" style="margin-top:0">Add your council’s collection days and Somasu shows which bin goes out, on Home and in the calendar, with a reminder the evening before.</p>'}
+      ${isAdmin() ? `<div class="actions"><button class="btn sm ${binsCfg() ? 'ghost' : ''}" data-act="edit-bins">${binsCfg() ? 'Change bin day' : 'Set up bin day'}</button></div>` : ''}</div>
     <h2>Notifications</h2>
     ${notifySection()}
     <h2>Install on your phone or computer</h2>
@@ -1047,6 +1159,26 @@ const SAVE = {
     if (id) await store.update('facilities', id, row); else { const r = await store.insert('facilities', row); S.facilityId = r.id; }
     closeModal(); toast('Saved');
   },
+  async bins(form) {
+    const anchor = formVal(form, 'anchor'); if (!/^\d{4}-\d{2}-\d{2}$/.test(anchor)) return showErr(form, 'Add one collection date from the council’s calendar.');
+    const types = [0, 1].map(i => ({ name: formVal(form, 'n' + i), what: formVal(form, 'w' + i), colour: formVal(form, 'c' + i) })).filter(t => t.name);
+    if (!types.length) return showErr(form, 'Give the week 1 bin a name, for example Green bin.');
+    const moves = [];
+    for (const line of formVal(form, 'moves').split(/\n+/).map(x => x.trim()).filter(Boolean)) {
+      const [a, b = ''] = line.split(/\s*(?:->|>|→|\bto\b)\s*/i);
+      const from = dmy(a), to = /^(none|no collection|cancelled|-)?$/i.test(b.trim()) ? '' : dmy(b);
+      if (!from || to === null) return showErr(form, `Couldn’t read “${line}”. Write it like 24-12-2026 > 27-12-2026, or 24-12-2026 > none.`);
+      moves.push({ from, to });
+    }
+    // The date entered may be either bin's week: turn it into the date of a week 1 collection.
+    const first = Math.min(+formVal(form, 'first') || 0, types.length - 1);
+    const a = first ? ymd(addDays(parseYmd(anchor), -7 * first)) : anchor;
+    const cfg = { anchor: a, types, out: formVal(form, 'out'), moves, until: formVal(form, 'until'), source: formVal(form, 'source'), remind: form.elements.remind.checked };
+    if (cfg.source && !/^https:\/\//i.test(cfg.source)) return showErr(form, 'The council link should start with https://');
+    try { await saveSetting('bins', JSON.stringify(cfg)); } catch (e) { return showErr(form, e.message); }
+    closeModal(); render();
+    const b = nextBin(cfg); toast(b ? `Saved. Next: ${b.type.name}, ${relDay(b.date)}` : 'Saved');
+  },
   async support(form) {
     const email = formVal(form, 'email').toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return showErr(form, 'That doesn’t look like an email address.');
@@ -1262,8 +1394,8 @@ async function scanFound(code, listId) {
 const PUSH_OK = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 const IS_IOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const STANDALONE = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-const PUSH_KINDS = [['lists', 'Lists', 'When someone adds to a shopping or to-do list'], ['events', 'Calendar', 'When an event for you (or everyone) is added, changed or cancelled'], ['bookings', 'Bookings', 'When something is booked, changed or cancelled'], ['reminders', 'Reminders', 'Before events, when a reminder is set']];
-const PUSH_DEFAULT = { lists: true, events: true, bookings: true, reminders: true };
+const PUSH_KINDS = [['lists', 'Lists', 'When someone adds to a shopping or to-do list'], ['events', 'Calendar', 'When an event for you (or everyone) is added, changed or cancelled'], ['bookings', 'Bookings', 'When something is booked, changed or cancelled'], ['reminders', 'Reminders', 'Before events, when a reminder is set'], ['bins', 'Bin day', 'At 7pm the evening before, saying which bin goes out']];
+const PUSH_DEFAULT = { lists: true, events: true, bookings: true, reminders: true, bins: true };
 S.push = { on: false, row: null, prefs: Object.assign({}, PUSH_DEFAULT, store_get('somasu-push-prefs', {})) };
 
 function b64ToU8(str) { const p = '='.repeat((4 - str.length % 4) % 4); const raw = atob((str + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(raw, c => c.charCodeAt(0)); }
@@ -1586,6 +1718,12 @@ const ACT = {
   async 'push-test'() { await testNotification(); },
   help() { showHelp(); },
   report() { reportProblem(); },
+  bins() { binSheet(); },
+  'edit-bins'() { if (isAdmin()) binsForm(); },
+  async 'clear-bins'() {
+    if (!confirm('Turn off bin day? Somasu stops showing bins and sending bin reminders. You can set it up again any time.')) return;
+    try { await saveSetting('bins', ''); closeModal(); render(); toast('Bin day turned off'); } catch (e) { toast(e.message); }
+  },
   'edit-support'() {
     modal('Problem reports', `<form data-form="support" autocomplete="off">
       <div class="f"><label for="supE">Send Report a problem emails to</label><input id="supE" type="email" name="email" required value="${esc(supportEmail())}" inputmode="email"></div>
@@ -1787,6 +1925,6 @@ async function boot() {
   window.addEventListener('resize', fit);
 })();
 
-window.__somasu = { S, parseICS, occurrences, guessCat, eventsBetween, normTitle, calOwners, render, validBarcode, offAisle, lookupBarcode }; // handy for testing in the browser console
+window.__somasu = { S, parseICS, occurrences, guessCat, eventsBetween, normTitle, calOwners, render, validBarcode, offAisle, lookupBarcode, binCollections, nextBin, binsCfg }; // handy for testing in the browser console
 boot();
 })();

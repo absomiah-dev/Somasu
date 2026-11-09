@@ -100,3 +100,21 @@ export function occurrences(o, from, to) {
   return out;
 }
 export { addDays, ymd };
+
+/* Bin day (26 R10), the same rule as the app (app.js, binCollections): the same weekday every
+   week, cycling through cfg.types from the anchor date, with bank holiday moves. */
+const parseYmd = t => { const [y, m, d] = t.split('-').map(Number); return new Date(y, m - 1, d); };
+const sod = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+export function binCollections(c, from, to) {
+  if (!c || !/^\d{4}-\d{2}-\d{2}$/.test(c.anchor || '') || !Array.isArray(c.types) || !c.types.length) return [];
+  const n = c.types.length, a = parseYmd(c.anchor), out = [];
+  const moves = new Map((c.moves || []).filter(m => m && m.from).map(m => [m.from, m.to || '']));
+  for (let k = Math.floor((sod(from) - a) / (7 * 86400000)) - 2; ; k++) {
+    const d = addDays(a, k * 7); if (d > addDays(to, 14)) break;
+    const type = c.types[((k % n) + n) % n], key = ymd(d);
+    let date = d, moved = false;
+    if (moves.has(key)) { const t = moves.get(key); if (!t) continue; date = parseYmd(t); moved = true; }
+    if (date >= sod(from) && date < to) out.push({ date, type, moved });
+  }
+  return out.sort((x, y) => x.date - y.date);
+}
