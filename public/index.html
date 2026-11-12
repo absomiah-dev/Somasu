@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Somasu">
-<meta name="app-version" content="26 R12 (12-11-2026)">
+<meta name="app-version" content="26 R13 (12-11-2026)">
 <title>Somasu</title>
 <link rel="manifest" href="site.webmanifest">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -229,6 +229,30 @@ fieldset.f{border:0;padding:0;margin:0 0 14px}fieldset.f legend{font-weight:600;
   .day .more{font-size:10px;color:var(--muted);padding-left:4px}
 }
 .agenda-day{margin-bottom:14px}
+/* Phone calendar (26 R13) */
+.pcal{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);padding:8px 6px 0;margin-bottom:14px;touch-action:pan-y}
+.pdow{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:11px;font-weight:700;color:var(--muted);padding-bottom:2px}
+.pgrid{display:grid;grid-template-columns:repeat(7,1fr);row-gap:2px}
+.pd{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 0 6px;min-height:52px;font:inherit;color:var(--ink);cursor:pointer;border-radius:12px}
+.pgrid.week .pd{min-height:60px}
+.pd .n{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;font-size:15px;font-weight:600}
+.pd.other .n{color:var(--muted);opacity:.55}
+.pd.today .n{box-shadow:inset 0 0 0 2px var(--green);color:var(--green);font-weight:800}
+.pd.sel .n{background:var(--ink);color:#fff;box-shadow:none}
+.pdots{display:flex;gap:3px;height:7px;align-items:center}.pdots i{width:6px;height:6px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}.pdots b{font-size:9px;line-height:1;color:var(--muted)}
+.pd:focus-visible{outline:3px solid var(--ink);outline-offset:-2px}
+.phandle{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;border:0;border-top:1px solid var(--line);background:none;padding:9px;font:600 13px inherit;font-family:inherit;color:var(--muted);cursor:pointer;margin-top:4px}
+.pday{padding-bottom:96px;touch-action:pan-y}
+.pday-h{display:flex;align-items:center;gap:6px;margin:0 0 8px}
+.pday-t{flex:1;min-width:0;text-align:center}.pday-t b{font-size:18px;line-height:1.25}.pday-t .tag{display:inline-block;margin-left:6px;vertical-align:2px}
+.pday-t .tag{font-size:12px;font-weight:700;background:var(--green);color:#fff;border-radius:20px;padding:3px 9px}
+.pwx{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}.pwx span{background:var(--white);box-shadow:var(--shadow);border-radius:20px;padding:5px 11px;font-size:13px;font-weight:600}.pwx .hu{background:#E7F2FB}
+.pall{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.pchip{display:inline-flex;align-items:center;gap:7px;border:0;background:var(--white);box-shadow:var(--shadow);border-radius:20px;padding:7px 12px;font:600 13.5px inherit;font-family:inherit;color:var(--ink);cursor:pointer}.pchip i{width:10px;height:10px;border-radius:50%}
+.pev.past{opacity:.55}
+.nowline{display:flex;align-items:center;gap:8px;margin:6px 0 8px;color:#DB2B24;font-size:12px;font-weight:700}.nowline::before{content:"";width:9px;height:9px;border-radius:50%;background:#DB2B24}.nowline::after{content:"";flex:1;height:2px;background:#DB2B24}
+.padd{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:8px;padding:12px;border:2px dashed var(--line);border-radius:14px;background:none;font:600 14px inherit;font-family:inherit;color:var(--muted);cursor:pointer}.padd svg{width:18px;height:18px}
+.pempty{text-align:center}
 .agenda-day h3{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 6px 4px}
 .agenda-day h3.today{color:var(--green)}
 .ev{display:flex;gap:10px;align-items:stretch;width:100%;border:0;background:#fff;border-radius:12px;padding:10px;text-align:left;margin-bottom:6px;box-shadow:var(--shadow)}

@@ -12,11 +12,13 @@
    On every new build: change APP_RELEASE and APP_UPDATED, the <meta name="app-version">
    tag in index.html and the CACHE name in sw.js, and add the release at the top of RELEASES.
    Plain English, one short sentence per item, what people will notice. */
-const APP_YEAR = '26', APP_RELEASE = 'R12', APP_UPDATED = '12 Nov 2026';
+const APP_YEAR = '26', APP_RELEASE = 'R13', APP_UPDATED = '12 Nov 2026';
 const VERSION = APP_YEAR + ' ' + APP_RELEASE;
 const VERSION_DATE = APP_UPDATED;
 const PRE_RELEASE = /^R0\./.test(APP_RELEASE);
 const RELEASES = [
+  { v: '26 R13', date: '12 Nov 2026',
+    everyone: ['An easier calendar on phones: a week at the top and the chosen day’s plans below, with its weather, bin day and a line for now. Tap “Show the whole month” for the month, and swipe to move between weeks, months or days.'] },
   { v: '26 R12', date: '12 Nov 2026',
     everyone: ['Tighter security: Somasu now only runs its own code, which also stops the “Powered by Netlify” badge covering buttons.'] },
   { v: '26 R11', date: '12 Nov 2026',
@@ -282,7 +284,7 @@ const S = {
   members: [], lists: [], items: [], events: [], calendars: [], facilities: [], bookings: [],
   me: null, user: null, external: {}, extStatus: {}, settings: {},
   listId: store_get('somasu-list', null), showDone: false,
-  calMonth: sod(new Date()), calDay: sod(new Date()), calView: store_get('somasu-calview', 'month'),
+  calMonth: sod(new Date()), calDay: sod(new Date()), calView: store_get('somasu-calview', 'month'), calOpen: store_get('somasu-calopen', false),
   hidden: new Set(store_get('somasu-hidden', [])),
   facilityId: null, bookDay: sod(new Date())
 };
@@ -921,6 +923,7 @@ function viewCalendar() {
     const keys = Object.keys(byDay).sort();
     return head + (keys.length ? keys.map(k => `<div class="agenda-day"><h3 class="${k === ymd(today) ? 'today' : ''}">${relDay(parseYmd(k))}</h3>${byDay[k].map(evCard).join('')}</div>`).join('') : `<div class="card empty"><b>Nothing in the next 60 days</b>Tap + to add something.</div>`);
   }
+  if (isPhone()) return head + calPhone(evs, gridStart);
   let cells = '';
   for (let i = 0; i < 42; i++) {
     const d = addDays(gridStart, i), list = onDay(evs, d);
@@ -937,6 +940,71 @@ function viewCalendar() {
       ${dayList.length ? dayList.map(evCard).join('') : `<div class="card empty">Nothing on.<br><br><button class="btn sm" data-act="new-event" data-d="${ymd(S.calDay)}">${I.plus} Add to this day</button></div>`}</div></div>
   </div>`;
 }
+/* Phone calendar (26 R13). A week strip by default, so the chosen day's plans fill the screen;
+   tap the handle for the whole month (a tighter grid). Picking a day in the month folds it back
+   to that week. Swipe the strip or month to move a week or month, and swipe the day to move a
+   day. The day shows its weather and any heads-up, all-day things as chips, then the timed
+   plans in order with a line for "now", and space so the + button never covers the last one. */
+const isPhone = () => window.matchMedia('(max-width:699px)').matches;
+function dayCell(d, evs, m, today) {
+  const list = onDay(evs, d), dots = list.slice(0, 3).map(e => `<i style="background:${esc(e.colour)}"></i>`).join('') + (list.length > 3 ? '<b>+</b>' : '');
+  const cls = ['pd', m && d.getMonth() !== m.getMonth() ? 'other' : '', sameDay(d, today) ? 'today' : '', sameDay(d, S.calDay) ? 'sel' : ''].join(' ');
+  return `<button class="${cls}" data-act="cal-day" data-d="${ymd(d)}" aria-label="${fmtDayLong(d)}, ${list.length ? list.length + (list.length === 1 ? ' thing' : ' things') : 'nothing on'}"${sameDay(d, S.calDay) ? ' aria-current="date"' : ''}><span class="n">${d.getDate()}</span><span class="pdots">${dots}</span></button>`;
+}
+function calPhone(evsMonth, gridStart) {
+  if (!WX.data && !WX.busy && !WX.failed) loadWeather();
+  const today = sod(new Date()), sel = S.calDay, m = S.calMonth;
+  const wk = addDays(sel, -((sel.getDay() + 6) % 7));
+  let grid;
+  if (S.calOpen) {
+    let cells = ''; for (let i = 0; i < 42; i++) cells += dayCell(addDays(gridStart, i), evsMonth, m, today);
+    grid = `<div class="pgrid">${cells}</div>`;
+  } else {
+    const evs = eventsBetween(wk, addDays(wk, 7));
+    grid = `<div class="pgrid week">${[...Array(7)].map((_, i) => dayCell(addDays(wk, i), evs, null, today)).join('')}</div>`;
+  }
+  const card = `<section class="pcal" data-swipe="${S.calOpen ? 'month' : 'week'}">
+    <div class="pdow">${['M', 'T', 'W', 'T', 'F', 'S', 'S'].map(x => `<span>${x}</span>`).join('')}</div>${grid}
+    <button class="phandle" data-act="cal-open" aria-expanded="${S.calOpen}">${S.calOpen ? 'Show one week' : 'Show the whole month'}<span aria-hidden="true">${S.calOpen ? '▴' : '▾'}</span></button></section>`;
+  // The chosen day
+  const list = onDay(eventsBetween(sel, addDays(sel, 1)), sel), allDay = list.filter(e => e.allDay), timed = list.filter(e => !e.allDay);
+  const now = new Date(), isToday = sameDay(sel, today);
+  let rows = '', nowShown = false;
+  for (const e of timed) {
+    if (isToday && !nowShown && e.start > now) { rows += `<div class="nowline" aria-label="Now"><span>Now ${fmtTime(now)}</span></div>`; nowShown = true; }
+    rows += `<div class="pev${isToday && e.end <= now ? ' past' : ''}">${evCard(e)}</div>`;
+  }
+  if (isToday && timed.length && !nowShown) rows += `<div class="nowline"><span>Now ${fmtTime(now)}</span></div>`;
+  const w = dayWeather(sel), hu = (wxAhead(today) || []).find(h => h.from <= ymd(sel) && h.to >= ymd(sel));
+  const label = isToday ? 'Today' : sameDay(sel, addDays(today, 1)) ? 'Tomorrow' : sameDay(sel, addDays(today, -1)) ? 'Yesterday' : '';
+  return card + `<section class="pday" data-swipe="day">
+    <div class="pday-h"><button class="icon-btn" data-act="day-prev" aria-label="Previous day">${I.left}</button>
+      <div class="pday-t"><b>${sel.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</b>${label ? `<span class="tag">${label}</span>` : ''}</div>
+      <button class="icon-btn" data-act="day-next" aria-label="Next day">${I.right}</button></div>
+    ${w || hu ? `<div class="pwx">${w ? `<span>${w.icon} ${w.hi}° / ${w.lo}°${w.rain >= 40 ? ` · rain ${w.rain}%` : ''}</span>` : ''}${hu ? `<span class="hu">${hu.icon} ${esc(wxLabel(hu))}</span>` : ''}</div>` : ''}
+    ${allDay.length ? `<div class="pall">${allDay.map(e => `<button class="pchip" ${e.kind === 'bin' ? 'data-act="bins"' : e.kind === 'family' ? `data-act="edit-event" data-id="${e.ev.id}" data-start="${+e.start}"` : `data-act="view-linked" data-cal="${e.cal.id}" data-start="${+e.start}"`}><i style="background:${esc(e.colour)}"></i>${esc(e.kind === 'bin' ? e.bin.type.name : e.title)}</button>`).join('')}</div>` : ''}
+    ${timed.length ? rows : allDay.length ? '' : `<div class="card empty pempty">Nothing planned.<br><br><button class="btn sm" data-act="new-event" data-d="${ymd(sel)}">${I.plus} Add to ${label ? label.toLowerCase() : 'this day'}</button></div>`}
+    ${timed.length || allDay.length ? `<button class="padd" data-act="new-event" data-d="${ymd(sel)}">${I.plus} Add to ${label ? label.toLowerCase() : 'this day'}</button>` : ''}
+  </section>`;
+}
+/** The forecast for one day, if Open-Meteo's three days cover it. */
+function dayWeather(d) {
+  const x = WX.data; if (!x || !x.daily) return null; const k = x.daily.time.indexOf(ymd(d)); if (k < 0) return null;
+  const [icon] = WX_ICON(x.daily.weather_code[k]);
+  return { icon, hi: Math.round(x.daily.temperature_2m_max[k]), lo: Math.round(x.daily.temperature_2m_min[k]), rain: x.daily.precipitation_probability_max[k] || 0 };
+}
+function calMove(kind, dir) {
+  if (kind === 'day') S.calDay = addDays(S.calDay, dir);
+  else if (kind === 'week') S.calDay = addDays(S.calDay, 7 * dir);
+  else { S.calMonth = new Date(S.calMonth.getFullYear(), S.calMonth.getMonth() + dir, 1); return render(); }
+  S.calMonth = new Date(S.calDay.getFullYear(), S.calDay.getMonth(), 1); render();
+}
+// Swipes: left/right on anything marked data-swipe (a clear sideways move, not a scroll).
+(() => { let x0 = null, y0 = 0, el = null;
+  document.addEventListener('touchstart', e => { el = e.target.closest('[data-swipe]'); if (!el || e.touches.length > 1) { x0 = null; return; } x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+  document.addEventListener('touchend', e => { if (x0 === null || !el) return; const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0; x0 = null;
+    if (Math.abs(dx) > 60 && Math.abs(dy) < 45) calMove(el.dataset.swipe, dx < 0 ? 1 : -1); }, { passive: true });
+})();
 function evCard(e) {
   if (e.kind === 'bin') return `<button class="ev" data-act="bins"><span class="evbar" style="background:${esc(e.colour)}"></span><span class="when">All day</span>
     <span class="main"><span class="t">${esc(e.bin.type.name)}</span><span class="src">Bins</span><br><span class="m">${esc(e.bin.type.what || '')}${e.bin.moved ? ' · moved' : ''}</span></span></button>`;
@@ -1789,12 +1857,16 @@ const ACT = {
     } else confirmBox('Delete event?', `“${ev.title}” will be removed from the family calendar.`, 'Delete', async () => { await store.remove('events', ev.id); notifyEventGone(ev); toast('Event deleted'); });
   },
   'ics-event'(el) { const ev = S.events.find(x => x.id === el.dataset.id); download(ev.title.replace(/[^\w -]/g, '').trim() + '.ics', eventICS(ev), 'text/calendar'); },
-  'cal-prev'() { S.calMonth = new Date(S.calMonth.getFullYear(), S.calMonth.getMonth() - 1, 1); render(); },
-  'cal-next'() { S.calMonth = new Date(S.calMonth.getFullYear(), S.calMonth.getMonth() + 1, 1); render(); },
+  'cal-prev'() { if (isPhone() && S.calView === 'month') return calMove(S.calOpen ? 'month' : 'week', -1); S.calMonth = new Date(S.calMonth.getFullYear(), S.calMonth.getMonth() - 1, 1); render(); },
+  'cal-next'() { if (isPhone() && S.calView === 'month') return calMove(S.calOpen ? 'month' : 'week', 1); S.calMonth = new Date(S.calMonth.getFullYear(), S.calMonth.getMonth() + 1, 1); render(); },
   'cal-today'() { S.calMonth = sod(new Date()); S.calDay = sod(new Date()); render(); },
   'cal-view'(el) { S.calView = el.dataset.v; store_set('somasu-calview', S.calView); render(); },
+  'cal-open'() { S.calOpen = !S.calOpen; store_set('somasu-calopen', S.calOpen); render(); },
+  'day-prev'() { calMove('day', -1); },
+  'day-next'() { calMove('day', 1); },
   'cal-day'(el) {
     const d = parseYmd(el.dataset.d);
+    if (isPhone()) { if (sameDay(d, S.calDay) && !S.calOpen) return eventForm(null, d); S.calDay = d; S.calMonth = new Date(d.getFullYear(), d.getMonth(), 1); if (S.calOpen) { S.calOpen = false; store_set('somasu-calopen', false); } render(); return window.scrollTo({ top: 0 }); }
     if (sameDay(d, S.calDay) && !window.matchMedia('(min-width:1000px)').matches) return eventForm(null, d); // second tap adds
     S.calDay = d; if (d.getMonth() !== S.calMonth.getMonth()) S.calMonth = new Date(d.getFullYear(), d.getMonth(), 1); render();
   },

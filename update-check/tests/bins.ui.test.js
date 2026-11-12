@@ -62,11 +62,14 @@ srv.listen(0, async () => {
       await p.click('.sheet [data-act=close]');
       // calendar shows bins, and the Bins chip hides them
       await p.click('nav.nav [data-tab=calendar]'); await p.waitForTimeout(200);
+      // phone calendar (26 R13): pick the day in the week strip; bins show as chips
       await p.click('[data-act=cal-day][data-d="2026-11-12"]'); await p.waitForTimeout(150);
-      ok('calendar: Green bin on Thu 12 Nov', await p.evaluate(() => [...document.querySelectorAll('.agenda-day .ev .t')].some(x => x.textContent === 'Green bin')));
-      ok('calendar: Grey bin on Thu 19 Nov', await p.evaluate(() => [...document.querySelectorAll('[data-d="2026-11-19"] .lbl')].some(x => /Grey bin/.test(x.textContent))));
+      ok('calendar: Green bin on Thu 12 Nov', await p.evaluate(() => [...document.querySelectorAll('.pall .pchip')].some(x => /Green bin/.test(x.textContent))));
+      await p.click('[data-act=cal-open]'); await p.click('[data-act=cal-day][data-d="2026-11-19"]'); await p.waitForTimeout(150);
+      ok('calendar: Grey bin on Thu 19 Nov', await p.evaluate(() => [...document.querySelectorAll('.pall .pchip')].some(x => /Grey bin/.test(x.textContent))));
+      await p.click('[data-act=day-prev]'); for (let i = 0; i < 6; i++) await p.click('[data-act=day-prev]'); await p.waitForTimeout(150);
       await p.click('[data-act=filter][data-key=bins]'); await p.waitForTimeout(150);
-      ok('Bins chip hides them', await p.evaluate(() => ![...document.querySelectorAll('.agenda-day .ev .t')].some(x => x.textContent === 'Green bin')));
+      ok('Bins chip hides them', await p.evaluate(() => /12 November/.test(document.querySelector('.pday-t').textContent) && ![...document.querySelectorAll('.pall .pchip')].some(x => /Green bin/.test(x.textContent))));
       await p.click('[data-act=filter][data-key=bins]'); await p.waitForTimeout(150);
       ok('no errors', !errs.length, errs);
       await ctx.close();
