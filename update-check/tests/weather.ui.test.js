@@ -59,7 +59,7 @@ srv.listen(0, async () => {
     }
     {
       const {p, ctx} = await page(b, {bins: '', weather_outlook: JSON.stringify(OUT)}, '#weather');
-      ok('notification link #weather opens the weather sheet on Home', await p.isVisible('.sheet .wxh') && /Today in Witney/.test(await p.textContent('.sheet h2')));
+      ok('notification link #weather opens the weather sheet on Home', await p.isVisible('.sheet .wxh') && /Weather in Witney/.test(await p.textContent('.sheet h2')));
       await ctx.close();
     }
     {

@@ -12,11 +12,13 @@
    On every new build: change APP_RELEASE and APP_UPDATED, the <meta name="app-version">
    tag in index.html and the CACHE name in sw.js, and add the release at the top of RELEASES.
    Plain English, one short sentence per item, what people will notice. */
-const APP_YEAR = '26', APP_RELEASE = 'R13', APP_UPDATED = '12 Nov 2026';
+const APP_YEAR = '26', APP_RELEASE = 'R14', APP_UPDATED = '12 Nov 2026';
 const VERSION = APP_YEAR + ' ' + APP_RELEASE;
 const VERSION_DATE = APP_UPDATED;
 const PRE_RELEASE = /^R0\./.test(APP_RELEASE);
 const RELEASES = [
+  { v: '26 R14', date: '12 Nov 2026',
+    everyone: ['A fuller weather forecast: tap the Weather tile for the next 7 days, then tap a day to see every other hour (temperature, rain and wind). Days 8 to 14 are shown at a glance, and the calendar now shows the weather up to two weeks ahead.'] },
   { v: '26 R13', date: '12 Nov 2026',
     everyone: ['An easier calendar on phones: a week at the top and the chosen day’s plans below, with its weather, bin day and a line for now. Tap “Show the whole month” for the month, and swipe to move between weeks, months or days.'] },
   { v: '26 R12', date: '12 Nov 2026',
@@ -696,18 +698,19 @@ function viewHome() {
 const TILE_KINDS = [['bins', 'Bin day'], ['weather', 'Weather'], ['shopping', 'Shopping'], ['week', 'This week'], ['car', 'First thing to book'], ['today', 'Today']];
 const TILE_DEFAULT = ['bins', 'weather', 'shopping', 'week'];
 // Weather: Open-Meteo, a free forecast service for personal use (no account or key). Only a rough
-// location is sent (the town, not the house). Cached for an hour on each device.
+// location is sent (the town, not the house). Cached for an hour on each device. From 26 R14 it
+// fetches 14 days: hourly detail for the 7-day forecast (every other hour) and daily figures for days 8 to 14.
 const WEATHER_PLACE = { name: 'Witney', lat: 51.785, lon: -1.485 };
 const WX = { at: 0, data: null, busy: false };
 async function loadWeather() {
   if (WX.busy) return; const cached = store_get('somasu-weather', null);
-  if (cached && Date.now() - cached.at < 3600000) { WX.data = cached.data; WX.at = cached.at; return; }
+  if (cached && Date.now() - cached.at < 3600000 && cached.v === 2) { WX.data = cached.data; WX.at = cached.at; return; }
   WX.busy = true;
   try {
-    const u = `https://api.open-meteo.com/v1/forecast?latitude=${WEATHER_PLACE.lat}&longitude=${WEATHER_PLACE.lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_gusts_10m_max&hourly=precipitation_probability,wind_gusts_10m&timezone=Europe%2FLondon&forecast_days=3`;
+    const u = `https://api.open-meteo.com/v1/forecast?latitude=${WEATHER_PLACE.lat}&longitude=${WEATHER_PLACE.lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,wind_gusts_10m_max,sunrise,sunset&hourly=temperature_2m,weather_code,precipitation_probability,wind_gusts_10m,is_day&timezone=Europe%2FLondon&forecast_days=14`;
     const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 8000);
     const r = await fetch(u, { signal: ctl.signal }); clearTimeout(t);
-    if (r.ok) { WX.data = await r.json(); WX.at = Date.now(); store_set('somasu-weather', { at: WX.at, data: WX.data }); render(); }
+    if (r.ok) { WX.data = await r.json(); WX.at = Date.now(); store_set('somasu-weather', { v: 2, at: WX.at, data: WX.data }); render(); }
     else WX.failed = true;
   } catch (e) { if (cached) WX.data = cached.data; else WX.failed = true; }
   WX.busy = false; if (WX.failed) render();
@@ -821,20 +824,54 @@ function wxAhead(now = new Date()) { const o = wxSetting('weather_outlook'); con
 const wxLabel = h => h.days > 1 && h.kind === 'frost' ? 'Frosty nights' : h.days > 1 && /frost/.test(h.kind) ? h.label + 's' : h.label;
 const levelColour = l => l === 'red' ? '#DB2B24' : l === 'amber' ? '#F5871F' : '#F6C324';
 const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+/* Weather sheet (26 R14): warnings, today at a glance, then the next 7 days (tap a day for every
+   other hour: sky, temperature, chance of rain, gusts), days 8 to 14 in brief, the server's
+   heads-ups for the next two weeks and the weeks 3 to 6 trend. Days open and close with plain
+   <details> boxes, so no script is needed for that. */
+const mph = kmh => Math.round((kmh || 0) * 0.621);
+const hhmm = t => t ? t.slice(11, 16) : '';
+function wxDays(now = new Date()) {
+  const d = WX.data; if (!d || !d.daily || !d.daily.time) return [];
+  const today = ymd(now), H = d.hourly || {}, ht = H.time || [];
+  return d.daily.time.map((day, k) => {
+    if (day < today) return null;
+    const [icon, words] = WX_ICON(d.daily.weather_code[k]);
+    const first = day === today ? Math.ceil((now.getHours() + 0.01) / 2) * 2 - 2 : 0;
+    const hours = [];
+    ht.forEach((t, j) => { const h = +t.slice(11, 13); if (t.slice(0, 10) === day && h % 2 === 0 && h >= first && H.temperature_2m) {
+      const c = (H.weather_code || [])[j], night = H.is_day && H.is_day[j] === 0;
+      hours.push({ h, icon: night && c <= 2 ? (c === 0 ? '🌙' : '☁️') : WX_ICON(c)[0], temp: Math.round(H.temperature_2m[j]), rain: (H.precipitation_probability || [])[j] || 0, gust: mph((H.wind_gusts_10m || [])[j]) }); } });
+    const pick = (a) => a ? a[k] : null;
+    return { day, date: parseYmd(day), icon, words, hi: Math.round(d.daily.temperature_2m_max[k]), lo: Math.round(d.daily.temperature_2m_min[k]),
+      rain: pick(d.daily.precipitation_probability_max) || 0, mm: pick(d.daily.precipitation_sum), gust: mph(pick(d.daily.wind_gusts_10m_max)),
+      rise: hhmm(pick(d.daily.sunrise)), set: hhmm(pick(d.daily.sunset)), hours };
+  }).filter(Boolean);
+}
+function wxDayName(x, now) { const n = daysUntil(x.day, now); return n === 0 ? 'Today' : n === 1 ? 'Tomorrow' : x.date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' }); }
+function wxRange(x, lo, hi) { const span = Math.max(1, hi - lo), l = (x.lo - lo) / span * 100, w = Math.max(6, (x.hi - x.lo) / span * 100);
+  return `<span class="wxrange" aria-hidden="true"><i style="left:${l.toFixed(1)}%;width:${Math.min(100 - l, w).toFixed(1)}%"></i></span>`; }
 function weatherSheet() {
-  const w = weatherNow(new Date()), warns = wxWarnings(), ahead = wxAhead(), o = wxSetting('weather_outlook'), tr = (o && o.trend) || [];
-  const hrs = w ? w.hrs.filter(x => x.h >= 7 && x.h <= 21 && x.h % 2 === 1) : [];
-  modal(w ? `${w.late ? 'Tomorrow' : 'Today'} in ${WEATHER_PLACE.name}` : `Weather in ${WEATHER_PLACE.name}`, `
+  const now = new Date(), w = weatherNow(now), warns = wxWarnings(), ahead = wxAhead(), o = wxSetting('weather_outlook'), tr = (o && o.trend) || [];
+  const days = wxDays(now), week = days.slice(0, 7), later = days.slice(7, 14);
+  const lo = Math.min(...days.map(x => x.lo)), hi = Math.max(...days.map(x => x.hi));
+  const openDay = w && w.late ? 1 : 0;
+  const row = (x, i, detail) => `<span class="wxd-n">${esc(wxDayName(x, now))}</span><span class="wxd-i" title="${esc(x.words)}">${x.icon}</span><span class="wxd-r${x.rain >= 50 ? ' wet' : ''}">${x.rain >= 20 ? '💧' + x.rain + '%' : ''}</span><span class="wxd-lo">${x.lo}°</span>${wxRange(x, lo, hi)}<span class="wxd-hi">${x.hi}°</span>${detail ? '<span class="wxd-c" aria-hidden="true"></span>' : ''}`;
+  const hoursHtml = x => x.hours.length ? `<div class="wxhrs" role="list">${x.hours.map(h => `<div class="wxhr${h.rain >= 50 ? ' wet' : ''}" role="listitem"><b>${pad(h.h)}:00</b><span class="ic">${h.icon}</span><span class="t">${h.temp}°</span><span class="r">${h.rain}%</span><span class="g">${h.gust}</span></div>`).join('')}</div>
+      <p class="small muted wxkey">Every other hour: temperature, chance of rain, gusts in mph.</p>` : '';
+  const dayHtml = (x, i) => `<details class="wxd"${i === openDay ? ' open' : ''}><summary>${row(x, i, true)}</summary>
+      <div class="wxd-b"><p class="small">${esc(x.words)}. ${x.rain < 10 ? 'Dry' : `Up to ${x.rain}% chance of rain${x.mm >= 0.5 ? `, about ${Math.round(x.mm)} mm` : ''}`}. Gusts up to ${x.gust} mph.${x.rise ? ` Sunrise ${x.rise}, sunset ${x.set}.` : ''}</p>${hoursHtml(x)}</div></details>`;
+  modal(`Weather in ${WEATHER_PLACE.name}`, `
     ${warns.length ? `<h3 class="wxh">Met Office warnings</h3>${warns.map(x => `<div class="wxwarn" style="border-color:${levelColour(x.level)}"><b>⚠️ ${esc(cap(x.level))} warning: ${esc(x.type || 'severe weather')}</b><span>${esc(x.text)}</span><a href="${esc(x.link)}" target="_blank" rel="noopener noreferrer">Read the full warning on the Met Office website</a></div>`).join('')}` : ''}
-    ${w ? `<div class="wxbig"><span>${w.icon}</span><b>${w.hi}°</b> <span class="muted">${w.lo}°</span></div>
-    <p>${esc(w.words)}. ${esc(w.nudge)}. Gusts up to ${Math.round(w.gust * 0.621)} mph.</p>
-    <div class="wxhours">${hrs.map(x => `<span><i style="height:${Math.max(4, x.p)}%"></i><em>${x.h}</em></span>`).join('')}</div>
-    <p class="small muted">Bars show the chance of rain each hour.</p>` : '<p class="small muted">Today’s forecast isn’t available just now.</p>'}
-    <h3 class="wxh">Next two weeks</h3>
+    ${w ? `<div class="wxbig"><span>${w.icon}</span><b>${w.hi}°</b> <span class="muted">${w.lo}°</span><span class="wxbig-l">${w.late ? 'Tomorrow' : 'Today'}</span></div>
+    <p>${esc(w.words)}. ${esc(w.nudge)}. Gusts up to ${mph(w.gust)} mph.</p>` : '<p class="small muted">The forecast isn’t available just now.</p>'}
+    ${week.length ? `<h3 class="wxh">Next 7 days</h3><div class="wxdays">${week.map(dayHtml).join('')}</div><p class="small muted">Tap a day for every other hour.</p>` : ''}
+    ${later.length ? `<h3 class="wxh">Days 8 to 14 at a glance</h3><div class="wxdays later">${later.map((x, i) => `<div class="wxd flat">${row(x, i + 7, false)}</div>`).join('')}</div>
+    <p class="small muted">Further ahead, forecasts change from day to day: use these as a rough guide and check back.</p>` : ''}
+    <h3 class="wxh">Heads-ups for the next two weeks</h3>
     ${ahead.length ? ahead.map(h => `<div class="row"><span class="wxe">${h.icon}</span><div class="main"><div class="t">${esc(wxLabel(h))} · ${esc(h.when)}</div><div class="m">${esc(cap(h.why))}. ${esc(cap(h.sure))} forecasts agree.</div></div></div>`).join('') : `<p class="small">${o ? 'Nothing out of the ordinary: no hard frost, snow or gales in the forecasts.' : 'The look-ahead appears here once Somasu’s server has checked the forecasts.'}</p>`}
     ${tr.length ? `<h3 class="wxh">Weeks 3 to 6: the trend</h3>${tr.map(t => `<div class="row"><span class="wxe">${t.frost >= 45 ? '❄️' : t.frost >= 25 ? '🌡️' : '🌤️'}</span><div class="main"><div class="t">Week of ${esc(t.week)}: ${esc(t.text.toLowerCase())}</div><div class="m">Nights around ${t.nights}°C, days ${t.days}°C${t.hard >= 10 ? ` · about ${Math.round(t.hard / 10)} in 10 chance of a hard frost` : ''}</div></div></div>`).join('')}
     <p class="small muted">A trend, not a forecast: this far ahead only the general direction is reliable, never a date or a number. Headlines like “-11°C on the 21st” weeks ahead are guesses.</p>` : ''}
-    <p class="small muted">Warnings: Met Office, for ${esc((wxSetting('weather_warnings') || {}).region || 'London & South East England')}. Forecasts: Open-Meteo (ECMWF, 51 runs) for ${esc(WEATHER_PLACE.name)}.</p>
+    <p class="small muted">Warnings: Met Office, for ${esc((wxSetting('weather_warnings') || {}).region || 'London & South East England')}. Forecasts: Open-Meteo for ${esc(WEATHER_PLACE.name)} (the 14 days), ECMWF 51 runs (heads-ups and trend).</p>
     <div class="actions"><button class="btn dark grow" data-act="close">Done</button></div>`);
 }
 function evRow(e, showDay) {
@@ -987,7 +1024,7 @@ function calPhone(evsMonth, gridStart) {
     ${timed.length || allDay.length ? `<button class="padd" data-act="new-event" data-d="${ymd(sel)}">${I.plus} Add to ${label ? label.toLowerCase() : 'this day'}</button>` : ''}
   </section>`;
 }
-/** The forecast for one day, if Open-Meteo's three days cover it. */
+/** The forecast for one day, if Open-Meteo's 14 days cover it. */
 function dayWeather(d) {
   const x = WX.data; if (!x || !x.daily) return null; const k = x.daily.time.indexOf(ymd(d)); if (k < 0) return null;
   const [icon] = WX_ICON(x.daily.weather_code[k]);

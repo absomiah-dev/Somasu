@@ -1,3 +1,5 @@
 node_modules/
 .netlify/
 .DS_Store
+update-check/tests/beanz.y4m
+update-check/tests/scan-*.png
