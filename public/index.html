@@ -2,6 +2,10 @@
 <html lang="en-GB">
 <head>
 <meta charset="utf-8">
+<!-- Security rule (26 R12): the browser only runs scripts from Somasu itself and the Supabase
+     library on jsDelivr. Anything else is blocked, including scripts slipped into the page and
+     Netlify's injected "Powered by Netlify" badge (Netlify documents this effect). -->
+<meta http-equiv="Content-Security-Policy" content="script-src 'self' https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#9FBDAA">
@@ -9,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Somasu">
-<meta name="app-version" content="26 R11 (12-11-2026)">
+<meta name="app-version" content="26 R12 (12-11-2026)">
 <title>Somasu</title>
 <link rel="manifest" href="site.webmanifest">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">

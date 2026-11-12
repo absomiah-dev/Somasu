@@ -12,11 +12,13 @@
    On every new build: change APP_RELEASE and APP_UPDATED, the <meta name="app-version">
    tag in index.html and the CACHE name in sw.js, and add the release at the top of RELEASES.
    Plain English, one short sentence per item, what people will notice. */
-const APP_YEAR = '26', APP_RELEASE = 'R11', APP_UPDATED = '12 Nov 2026';
+const APP_YEAR = '26', APP_RELEASE = 'R12', APP_UPDATED = '12 Nov 2026';
 const VERSION = APP_YEAR + ' ' + APP_RELEASE;
 const VERSION_DATE = APP_UPDATED;
 const PRE_RELEASE = /^R0\./.test(APP_RELEASE);
 const RELEASES = [
+  { v: '26 R12', date: '12 Nov 2026',
+    everyone: ['Tighter security: Somasu now only runs its own code, which also stops the “Powered by Netlify” badge covering buttons.'] },
   { v: '26 R11', date: '12 Nov 2026',
     everyone: ['Weather look-ahead: tap the Weather tile for Met Office warnings, the next two weeks (hard frost, snow, gales, when most forecasts agree) and the trend for weeks 3 to 6.', 'Weather notifications: everyone hears about new Met Office warnings and big changes coming, never overnight. Turn them off under Family › Notifications › Weather.'] },
   { v: '26 R10', date: '9 Nov 2026',
@@ -2004,7 +2006,7 @@ function changePasswordForm() {
 /* ------------------------------------------------------------------ start */
 async function startApp() {
   try { await loadAll(); }
-  catch (e) { console.error(e); $('#app').innerHTML = `<div class="signin"><div class="box"><h1>Can’t reach the family database</h1><p>${esc(e.message || e)}</p><button class="btn dark" onclick="location.reload()">Try again</button></div></div>`; return; }
+  catch (e) { console.error(e); $('#app').innerHTML = `<div class="signin"><div class="box"><h1>Can’t reach the family database</h1><p>${esc(e.message || e)}</p><button class="btn dark" id="retry">Try again</button></div></div>`; $('#retry').addEventListener('click', () => location.reload()); return; }
   if (FAMILY_MODE && !S.me) {
     $('#app').innerHTML = `<div class="signin"><div class="box"><img src="icon-192.png" alt=""><h1>Nearly there</h1><p>You're signed in as <b>${esc(S.user.email)}</b>, but that address isn't on the family list yet. Ask a family admin to add you under Family › Family members.</p><button class="btn ghost" id="so">Sign out</button></div></div>`;
     $('#so').onclick = async () => { await client.auth.signOut(); location.reload(); };
@@ -2027,7 +2029,7 @@ async function startApp() {
 async function boot() {
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
   if (!FAMILY_MODE) { store = LocalStore(); return startApp(); }
-  if (!window.supabase) { $('#app').innerHTML = `<div class="signin"><div class="box"><h1>You're offline</h1><p>Somasu needs a connection to sign in. Try again when you're back online.</p><button class="btn dark" onclick="location.reload()">Try again</button></div></div>`; return; }
+  if (!window.supabase) { $('#app').innerHTML = `<div class="signin"><div class="box"><h1>You're offline</h1><p>Somasu needs a connection to sign in. Try again when you're back online.</p><button class="btn dark" id="retry">Try again</button></div></div>`; $('#retry').addEventListener('click', () => location.reload()); return; }
   // A "reset password" email link lands here with #...type=recovery; read it before Supabase tidies the address.
   const recovering = /type=recovery/.test(location.hash + location.search);
   const linkError = /error_description=([^&]+)/.exec(location.hash + location.search);
