@@ -12,11 +12,13 @@
    On every new build: change APP_RELEASE and APP_UPDATED, the <meta name="app-version">
    tag in index.html and the CACHE name in sw.js, and add the release at the top of RELEASES.
    Plain English, one short sentence per item, what people will notice. */
-const APP_YEAR = '26', APP_RELEASE = 'R10', APP_UPDATED = '9 Nov 2026';
+const APP_YEAR = '26', APP_RELEASE = 'R11', APP_UPDATED = '12 Nov 2026';
 const VERSION = APP_YEAR + ' ' + APP_RELEASE;
 const VERSION_DATE = APP_UPDATED;
 const PRE_RELEASE = /^R0\./.test(APP_RELEASE);
 const RELEASES = [
+  { v: '26 R11', date: '12 Nov 2026',
+    everyone: ['Weather look-ahead: tap the Weather tile for Met Office warnings, the next two weeks (hard frost, snow, gales, when most forecasts agree) and the trend for weeks 3 to 6.', 'Weather notifications: everyone hears about new Met Office warnings and big changes coming, never overnight. Turn them off under Family › Notifications › Weather.'] },
   { v: '26 R10', date: '9 Nov 2026',
     everyone: ['A new look for Home: what’s next in big type, four tiles with little pictures (bin day, weather, the shopping list, your week) and a Needs attention list. Tap Choose tiles to pick your own four.', 'Bin day: Somasu shows which bin goes out on Home and in the calendar, and can remind you at 7pm the evening before. Turn the reminder on or off under Family › Notifications.'],
     admin: ['Set up bin day under Family › Bin day: copy one collection date and the bins from the council’s calendar, plus any bank holiday changes. Somasu works out every week from that.'] },
@@ -315,6 +317,10 @@ async function loadSettings() {
     } else {
       S.settings = store_get('somasu-settings', {});
       // Try-out mode: a sample bin rule (green one week, grey the next) so the bin features show.
+      // Try-out mode: a sample look-ahead so the weather sheet shows how it works.
+      if (!('weather_outlook' in S.settings)) { const t = sod(new Date()), d = n => ymd(addDays(t, n)), nm = n => fmtDayShort(addDays(t, n));
+        S.settings.weather_outlook = JSON.stringify({ at: new Date().toISOString(), place: 'Witney', ahead: [{ kind: 'frost', icon: '🌡️', label: 'Frosty night', quiet: true, from: d(1), to: d(2), days: 2, agree: 0.98, why: 'around -1°C overnight', when: nm(1) + ' to ' + nm(2), sure: 'almost all' }, { kind: 'hard-frost', icon: '❄️', label: 'Hard frost', from: d(8), to: d(8), days: 1, agree: 0.65, why: 'down to about -4°C', when: nm(8), sure: '6 in 10' }],
+          trend: [14, 21, 28, 35].map((n, i) => ({ week: nm(n), text: ['A frost or two possible', 'Some frosty nights', 'A frost or two possible', 'Some frosty nights'][i], frost: [17, 33, 25, 36][i], hard: [0, 1, 1, 12][i], nights: [3, 2, 3, 2][i], days: [7, 7, 7, 6][i] })) }); }
       if (!('bins' in S.settings)) { const t = sod(new Date()), thu = addDays(t, (4 - t.getDay() + 7) % 7); S.settings.bins = JSON.stringify(Object.assign({}, BIN_SAMPLE, { anchor: ymd(thu) })); }
     }
   } catch (e) { console.warn('Family settings not loaded, using defaults:', e.message || e); S.settings = {}; }
@@ -714,6 +720,7 @@ function weatherNow(now = new Date()) {
   let nudge = schoolRun ? `Rain around ${schoolRun.h < 12 ? 'the morning' : 'the afternoon'} school run: take coats` : wet.length ? `Rain likely from ${pad(wet[0].h)}:00` : (d.daily.wind_gusts_10m_max[k] >= 50 ? 'Gusty: hold on to umbrellas' : 'Dry all day');
   return { late, icon, words, hi: Math.round(d.daily.temperature_2m_max[k]), lo: Math.round(d.daily.temperature_2m_min[k]), rain: d.daily.precipitation_probability_max[k] || 0, gust: d.daily.wind_gusts_10m_max[k] || 0, nudge, hrs };
 }
+const daysUntil = (ymdStr, now) => Math.round((parseYmd(ymdStr) - sod(now)) / 86400000);
 const ring = (frac, label, colour = '#F7DAA1') => { const c = 2 * Math.PI * 16, f = Math.max(0, Math.min(1, frac)); return `<svg class="ring" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="16" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="4"/><circle cx="20" cy="20" r="16" fill="none" stroke="${colour}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${(c * f).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 20 20)"/><text x="20" y="24" text-anchor="middle">${esc(label)}</text></svg>`; };
 const binIcon = col => `<svg class="binic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14l-1.3 13.2a1 1 0 0 1-1 .8H7.3a1 1 0 0 1-1-.8z" fill="${esc(col)}" stroke="rgba(255,255,255,.7)" stroke-width="1.2"/><rect x="4" y="4.2" width="16" height="2.8" rx="1" fill="${esc(col)}" stroke="rgba(255,255,255,.7)" stroke-width="1.2"/><circle cx="8.5" cy="21" r="1.4" fill="#fff"/><circle cx="15.5" cy="21" r="1.4" fill="#fff"/></svg>`;
 function tileHtml(kind, ctx) {
@@ -728,8 +735,12 @@ function tileHtml(kind, ctx) {
   }
   if (kind === 'weather') {
     const w = weatherNow(now);
-    if (!w) return `<button class="tile" data-act="weather"><span class="k">Weather</span><span class="v">…</span><span class="h">${navigator.onLine === false ? 'Offline' : WX.failed ? 'Forecast unavailable just now' : 'Fetching the forecast'}</span></button>`;
-    return `<button class="tile" data-act="weather"><span class="k">${w.late ? 'Tomorrow' : 'Weather'} · ${esc(WEATHER_PLACE.name)}</span><span class="vis"><span class="wxi" role="img" aria-label="${esc(w.words)}">${w.icon}</span><span class="wxt"><b>${w.hi}°</b> ${w.lo}°</span></span><span class="rainbar" aria-label="Chance of rain ${w.rain}%"><i style="width:${w.rain}%"></i></span><span class="h">${esc(w.nudge)}</span></button>`;
+    if (!w) { const wn = wxWarnings()[0]; return `<button class="tile${wn ? ' hot' : ''}" data-act="weather"><span class="k">Weather</span><span class="v">${wn ? '⚠️ Warning' : '…'}</span><span class="h">${wn ? esc(cap(wn.level) + ' warning: ' + (wn.type || 'severe weather')) : navigator.onLine === false ? 'Offline' : WX.failed ? 'Forecast unavailable just now' : 'Fetching the forecast'}</span></button>`; }
+    // Most useful first: a warning, a big change this week, rain at the school run, then a frosty night.
+    const warn = wxWarnings()[0], big = wxAhead(now).find(h => !h.quiet && daysUntil(h.from, now) <= 7), frost = wxAhead(now).find(h => h.quiet && daysUntil(h.from, now) <= 2);
+    const hu = big || (!/rain/i.test(w.nudge) && frost) || null;
+    const hint = warn ? `⚠️ ${cap(warn.level)} warning: ${warn.type || 'severe weather'}` : hu ? `${hu.icon} ${wxLabel(hu)} ${hu.when.split(' to ')[0].replace(/ \w+$/, '')}` : w.nudge;
+    return `<button class="tile${warn ? ' hot' : ''}" data-act="weather"><span class="k">${w.late ? 'Tomorrow' : 'Weather'} · ${esc(WEATHER_PLACE.name)}</span><span class="vis"><span class="wxi" role="img" aria-label="${esc(w.words)}">${w.icon}</span><span class="wxt"><b>${w.hi}°</b> ${w.lo}°</span></span><span class="rainbar" aria-label="Chance of rain ${w.rain}%"><i style="width:${w.rain}%"></i></span><span class="h">${esc(hint)}</span></button>`;
   }
   if (kind === 'shopping') {
     const sh = shop.filter(x => x.l.kind === 'shopping'); if (!sh.length) return null;
@@ -777,6 +788,8 @@ function dashboard(now, today, shop) {
   const att = [], c = binsCfg(), b = c && nextBin(c, now), w = weatherNow(now);
   if (b && sameDay(b.date, addDays(now, 1)) && now.getHours() >= 16) att.push([b.type.colour, `Put the ${b.type.name.toLowerCase()} out tonight`, (b.type.what || '') + (w && w.late && w.gust >= 50 ? ' · windy: weigh the lid down' : ''), 'bins']);
   if (b && sameDay(b.date, now) && now.getHours() < 9) att.push([b.type.colour, `${b.type.name} goes today`, c.out || '', 'bins']);
+  for (const x of wxWarnings().slice(0, 2)) att.push([levelColour(x.level), `${cap(x.level)} weather warning: ${x.type || 'severe weather'}`, 'Met Office · ' + (x.text.split(':').slice(1).join(':').trim() || 'tap for details'), 'weather']);
+  for (const h of wxAhead(now).filter(h => !h.quiet && daysUntil(h.from, now) <= 10).slice(0, 1)) att.push(['#8FC7F0', `Heads-up: ${wxLabel(h).toLowerCase()} ${h.when}`, `${cap(h.why)} · ${h.sure} forecasts agree`, 'weather']);
   const f = S.facilities[0];
   if (f) S.bookings.filter(x => x.facility_id === f.id && x.member_id !== (S.me && S.me.id) && new Date(x.start_at) > now && new Date(x.start_at) < addDays(now, 1)).slice(0, 1).forEach(x => att.push([mColour(x.member_id), `${mName(x.member_id)} has the ${f.name.toLowerCase().replace(/^the /, '')} ${relDay(new Date(x.start_at)).toLowerCase()} ${fmtTime(new Date(x.start_at))}`, x.note || '', 'bookings']));
   const added = S.items.filter(i => !i.done && !i.cleared && i.added_by && i.added_by !== (S.me && S.me.id) && i.created_at && sameDay(new Date(i.created_at), now));
@@ -784,7 +797,7 @@ function dashboard(now, today, shop) {
   return `<section class="dash" aria-label="Your day">
     <div class="hero"><div><span class="k">${hero.k}</span><div class="t">${esc(hero.t)}</div><div class="m">${esc(hero.m)}</div></div>${who}</div>
     <div class="tiles">${tiles.join('')}</div>
-    ${att.length ? `<h3>Needs attention</h3>${att.slice(0, 3).map(([col, t, m, tab]) => `<button class="att" data-act="tab" data-tab="${tab}"><span class="dot" style="background:${esc(col)}"></span><span><b>${esc(t)}</b>${m ? `<small>${esc(m)}</small>` : ''}</span></button>`).join('')}` : ''}
+    ${att.length ? `<h3>Needs attention</h3>${att.slice(0, 4).map(([col, t, m, tab]) => `<button class="att" ${tab === 'weather' ? 'data-act="weather"' : `data-act="tab" data-tab="${tab}"`}><span class="dot" style="background:${esc(col)}"></span><span><b>${esc(t)}</b>${m ? `<small>${esc(m)}</small>` : ''}</span></button>`).join('')}` : ''}
     <button class="dash-edit" data-act="edit-tiles">Choose tiles</button>
   </section>`;
 }
@@ -794,13 +807,30 @@ function tilesForm() {
     ${TILE_KINDS.map(([k, n]) => `<label class="toggle" style="padding:8px 0;border-top:1px solid var(--line)"><input type="checkbox" name="t" value="${k}" ${mine.includes(k) ? 'checked' : ''}><span>${k === 'car' && S.facilities[0] ? esc(S.facilities[0].name) : n}</span></label>`).join('')}
     <div class="actions"><button type="button" class="btn ghost" data-act="tiles-reset">Back to the usual four</button><button class="btn dark grow" type="submit">Save</button></div></form>`);
 }
+/* Weather warnings and the look-ahead (26 R11). The server (netlify/functions/weather.mjs)
+   reads the Met Office warnings for London & South East England every 30 minutes and works out
+   the next two weeks' heads-ups and a weeks 3 to 6 trend for Witney every 6 hours, then saves
+   them in the family settings. The app only reads them, so no phone calls those services. */
+function wxSetting(key) { try { const v = (S.settings || {})[key]; return v ? (typeof v === 'string' ? JSON.parse(v) : v) : null; } catch (e) { return null; } }
+function wxWarnings() { const w = wxSetting('weather_warnings'); return w && Array.isArray(w.list) && Date.now() - new Date(w.at) < 6 * 3600000 ? w.list : []; }
+function wxAhead(now = new Date()) { const o = wxSetting('weather_outlook'); const today = ymd(now); return o && Array.isArray(o.ahead) ? o.ahead.filter(h => h.to >= today && h.from > today) : []; }
+const wxLabel = h => h.days > 1 && h.kind === 'frost' ? 'Frosty nights' : h.days > 1 && /frost/.test(h.kind) ? h.label + 's' : h.label;
+const levelColour = l => l === 'red' ? '#DB2B24' : l === 'amber' ? '#F5871F' : '#F6C324';
+const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 function weatherSheet() {
-  const w = weatherNow(new Date()); if (!w) return toast('The forecast isn’t available just now');
-  const hrs = w.hrs.filter(x => x.h >= 7 && x.h <= 21 && x.h % 2 === 1);
-  modal(`${w.late ? 'Tomorrow' : 'Today'} in ${WEATHER_PLACE.name}`, `<div class="wxbig"><span>${w.icon}</span><b>${w.hi}°</b> <span class="muted">${w.lo}°</span></div>
+  const w = weatherNow(new Date()), warns = wxWarnings(), ahead = wxAhead(), o = wxSetting('weather_outlook'), tr = (o && o.trend) || [];
+  const hrs = w ? w.hrs.filter(x => x.h >= 7 && x.h <= 21 && x.h % 2 === 1) : [];
+  modal(w ? `${w.late ? 'Tomorrow' : 'Today'} in ${WEATHER_PLACE.name}` : `Weather in ${WEATHER_PLACE.name}`, `
+    ${warns.length ? `<h3 class="wxh">Met Office warnings</h3>${warns.map(x => `<div class="wxwarn" style="border-color:${levelColour(x.level)}"><b>⚠️ ${esc(cap(x.level))} warning: ${esc(x.type || 'severe weather')}</b><span>${esc(x.text)}</span><a href="${esc(x.link)}" target="_blank" rel="noopener noreferrer">Read the full warning on the Met Office website</a></div>`).join('')}` : ''}
+    ${w ? `<div class="wxbig"><span>${w.icon}</span><b>${w.hi}°</b> <span class="muted">${w.lo}°</span></div>
     <p>${esc(w.words)}. ${esc(w.nudge)}. Gusts up to ${Math.round(w.gust * 0.621)} mph.</p>
     <div class="wxhours">${hrs.map(x => `<span><i style="height:${Math.max(4, x.p)}%"></i><em>${x.h}</em></span>`).join('')}</div>
-    <p class="small muted">Bars show the chance of rain each hour. Forecast from Open-Meteo, updated hourly.</p>
+    <p class="small muted">Bars show the chance of rain each hour.</p>` : '<p class="small muted">Today’s forecast isn’t available just now.</p>'}
+    <h3 class="wxh">Next two weeks</h3>
+    ${ahead.length ? ahead.map(h => `<div class="row"><span class="wxe">${h.icon}</span><div class="main"><div class="t">${esc(wxLabel(h))} · ${esc(h.when)}</div><div class="m">${esc(cap(h.why))}. ${esc(cap(h.sure))} forecasts agree.</div></div></div>`).join('') : `<p class="small">${o ? 'Nothing out of the ordinary: no hard frost, snow or gales in the forecasts.' : 'The look-ahead appears here once Somasu’s server has checked the forecasts.'}</p>`}
+    ${tr.length ? `<h3 class="wxh">Weeks 3 to 6: the trend</h3>${tr.map(t => `<div class="row"><span class="wxe">${t.frost >= 45 ? '❄️' : t.frost >= 25 ? '🌡️' : '🌤️'}</span><div class="main"><div class="t">Week of ${esc(t.week)}: ${esc(t.text.toLowerCase())}</div><div class="m">Nights around ${t.nights}°C, days ${t.days}°C${t.hard >= 10 ? ` · about ${Math.round(t.hard / 10)} in 10 chance of a hard frost` : ''}</div></div></div>`).join('')}
+    <p class="small muted">A trend, not a forecast: this far ahead only the general direction is reliable, never a date or a number. Headlines like “-11°C on the 21st” weeks ahead are guesses.</p>` : ''}
+    <p class="small muted">Warnings: Met Office, for ${esc((wxSetting('weather_warnings') || {}).region || 'London & South East England')}. Forecasts: Open-Meteo (ECMWF, 51 runs) for ${esc(WEATHER_PLACE.name)}.</p>
     <div class="actions"><button class="btn dark grow" data-act="close">Done</button></div>`);
 }
 function evRow(e, showDay) {
@@ -1499,8 +1529,8 @@ async function scanFound(code, listId) {
 const PUSH_OK = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 const IS_IOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const STANDALONE = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-const PUSH_KINDS = [['lists', 'Lists', 'When someone adds to a shopping or to-do list'], ['events', 'Calendar', 'When an event for you (or everyone) is added, changed or cancelled'], ['bookings', 'Bookings', 'When something is booked, changed or cancelled'], ['reminders', 'Reminders', 'Before events, when a reminder is set'], ['bins', 'Bin day', 'At 7pm the evening before, saying which bin goes out']];
-const PUSH_DEFAULT = { lists: true, events: true, bookings: true, reminders: true, bins: true };
+const PUSH_KINDS = [['lists', 'Lists', 'When someone adds to a shopping or to-do list'], ['events', 'Calendar', 'When an event for you (or everyone) is added, changed or cancelled'], ['bookings', 'Bookings', 'When something is booked, changed or cancelled'], ['reminders', 'Reminders', 'Before events, when a reminder is set'], ['bins', 'Bin day', 'At 7pm the evening before, saying which bin goes out'], ['weather', 'Weather', 'Met Office warnings, and big changes coming (hard frost, snow, gales)']];
+const PUSH_DEFAULT = { lists: true, events: true, bookings: true, reminders: true, bins: true, weather: true };
 S.push = { on: false, row: null, prefs: Object.assign({}, PUSH_DEFAULT, store_get('somasu-push-prefs', {})) };
 
 function b64ToU8(str) { const p = '='.repeat((4 - str.length % 4) % 4); const raw = atob((str + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(raw, c => c.charCodeAt(0)); }
@@ -1670,6 +1700,7 @@ function applyRoute() {
   history.replaceState(null, '', location.pathname);
   if (qs.has('whatsnew') || tab === 'whatsnew') { render(); return setTimeout(() => showWhatsNew(qs.get('whatsnew') || a), 50); }
   if (tab === 'help') { render(); return setTimeout(showHelp, 50); }
+  if (tab === 'weather') { S.tab = 'home'; store_set('somasu-tab', 'home'); render(); return setTimeout(weatherSheet, 50); }
   if (!HELP_TOPIC[tab]) return;
   S.tab = tab; store_set('somasu-tab', tab);
   if (tab === 'lists' && a) { S.listId = a; store_set('somasu-list', a); }
